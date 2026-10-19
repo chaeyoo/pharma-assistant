@@ -1,0 +1,37 @@
+# RAPV-Assistant 2-프로세스 배포 — mcp(MCP HTTP 서버) + api(FastAPI)
+#
+# 완전 분리 구조: RAG 인덱스·도구 실행은 mcp 컨테이너가 소유하고, api 는
+# MCP_SERVER_URL(streamable HTTP)로만 도구를 호출한다. 두 서비스는 같은
+# 이미지(project/Dockerfile)를 쓰되 command 만 다르다 — data/ 는 이미지에
+# 구워져 양쪽에 존재한다(api 는 ra_tasks.json 을 /api/deadlines 에서 직접 읽는다).
+#
+# 실행:  docker compose up --build     (http://localhost:8000)
+services:
+  mcp:
+    build: ./project
+    command: sh -c "python -m src.preflight --role mcp && exec python -m src.mcp_server.server --transport http --host 0.0.0.0 --port 8001"
+    environment:
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN:-}         # 비우면 무인증(내부 전용이라 안전)
+    expose:
+      - "8001"            # 내부 네트워크 전용 — 호스트로 포트를 열지 않는다
+    healthcheck:
+      # slim 이미지에 curl 이 없어 python urllib 로 확인. /health 는 RAG 인덱스
+      # 구축 완료 후에만 200 — healthy = 도구 호출 준비 완료.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 60s   # preflight(--role mcp) + RAG 인덱스 구축 시간
+  api:
+    build: ./project
+    command: sh -c "python -m src.preflight --role api && exec uvicorn src.api.main:app --host 0.0.0.0 --port 8000"
+    environment:
+      - MCP_SERVER_URL=http://mcp:8001/mcp
+      - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN:-}         # mcp 서비스와 같은 값이면 Bearer 부착
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}   # 비우면 오프라인 모드
+      - AGENT_BACKEND=${AGENT_BACKEND:-direct}
+    ports:
+      - "8000:8000"
+    depends_on:
+      mcp:
+        condition: service_healthy

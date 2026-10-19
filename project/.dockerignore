@@ -1,0 +1,7 @@
+# 런타임 이미지에 불필요한 것 제외(이미지 경량화·비밀 유출 방지)
+.venv/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.env
+*.log

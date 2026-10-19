@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RAPV-Assistant · 운영 계기판</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 3h6v6h6v6h-6v6H9v-6H3V9h6z' fill='%23E4002B'/%3E%3Cpath d='M17 11h6v6h6v6h-6v6h-6v-6h-6v-6h6z' fill='%2343B02A'/%3E%3C/svg%3E" />
+<style>
+  /* 챗 UI(index.html)와 동일한 브랜드 팔레트 — 같은 서비스로 읽히게 한다. */
+  :root {
+    --brand-blue: #002B49; --brand-mildblue: #0072CE; --brand-green: #007A33;
+    --brand-mildgreen: #43B02A; --brand-bright: #97D700; --brand-red: #E4002B; --brand-yellow: #FFC845;
+    --bg: #f4f7f9; --panel: #ffffff; --panel2: #eef3f6; --line: #dde5ec;
+    --text: #1b2a38; --muted: #5b7186;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", "Noto Sans KR", sans-serif;
+    background: var(--bg); color: var(--text); }
+  header { padding: 21px 30px; background: var(--brand-blue); color: #fff;
+    display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+  header h1 { font-size: 24px; margin: 0; font-weight: 650; }
+  header .sub { color: #9fbdd4; font-size: 16.5px; }
+  .hspace { flex: 1; }
+  .badge { font-size: 16.5px; padding: 4.5px 13.5px; border-radius: 999px;
+    border: 1px solid rgba(255,255,255,.35); color: #cfe0ed; }
+  .badge.llm { color: #12310a; background: var(--brand-bright); border-color: var(--brand-bright); font-weight: 700; }
+  .badge.offline { color: var(--brand-yellow); border-color: var(--brand-yellow); }
+  .badge.ok { color: var(--brand-bright); border-color: var(--brand-bright); }
+  .badge.bad { color: #ffc0cb; border-color: var(--brand-red); background: rgba(228,0,43,.25); }
+  main { padding: 30px; max-width: 1180px; margin: 0 auto; }
+  h2 { font-size: 19.5px; margin: 0 0 15px; font-weight: 650; }
+  h2 .hint { font-weight: 400; font-size: 16.5px; color: var(--muted); margin-left: 9px; }
+  section { margin-bottom: 33px; }
+  .grid { display: grid; gap: 18px; }
+  .g3 { grid-template-columns: repeat(3, 1fr); }
+  .g2 { grid-template-columns: repeat(2, 1fr); }
+  .g4 { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 860px) { .g3, .g2, .g4 { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 13.5px;
+    padding: 21px 24px; box-shadow: 0 1.5px 4.5px rgba(0,43,73,.05); }
+  .card.hero { border-color: var(--brand-mildblue); box-shadow: 0 3px 12px rgba(0,114,206,.13); }
+  .label { font-size: 16.5px; color: var(--muted); }
+  .value { font-size: 42px; font-weight: 700; line-height: 1.2; margin: 9px 0 3px;
+    font-variant-numeric: tabular-nums; color: var(--brand-blue); }
+  .value.warnhi { color: var(--brand-red); }
+  .value small { font-size: 21px; font-weight: 600; color: var(--muted); }
+  .note { font-size: 15.5px; color: var(--muted); line-height: 1.55; margin-top: 6px; }
+  .axis { display: flex; align-items: center; gap: 15px; margin-bottom: 13.5px; }
+  .axis .name { width: 210px; flex: none; font-size: 17px; }
+  .axis .name em { font-style: normal; color: var(--muted); font-size: 14.5px; display: block; }
+  .bar { flex: 1; height: 15px; background: var(--panel2); border-radius: 999px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--brand-mildblue); border-radius: 999px;
+    transition: width .4s ease; }
+  .axis .cnt { width: 66px; text-align: right; font-variant-numeric: tabular-nums;
+    font-weight: 650; font-size: 17px; }
+  table.kv { width: 100%; border-collapse: collapse; font-size: 17px; }
+  table.kv td { padding: 9px 0; border-bottom: 1px solid var(--line); }
+  table.kv td:first-child { color: var(--muted); width: 45%; }
+  table.kv tr:last-child td { border-bottom: 0; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15.5px;
+    background: var(--panel2); padding: 2px 7px; border-radius: 5px; }
+  .empty { text-align: center; padding: 45px 30px; color: var(--muted); font-size: 18px; line-height: 1.7; }
+  footer { max-width: 1180px; margin: 0 auto; padding: 0 30px 45px; color: var(--muted);
+    font-size: 15.5px; line-height: 1.7; }
+  footer b { color: var(--text); }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    background: var(--brand-mildgreen); margin-right: 6px; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>RAPV-Assistant · 운영 계기판</h1>
+  <span class="sub">검증 게이트 경고율 모니터링</span>
+  <span class="hspace"></span>
+  <span class="badge" id="mode">…</span>
+  <span class="badge" id="mcp">MCP …</span>
+  <span class="sub"><span class="dot"></span><span id="tick">연결 중</span></span>
+</header>
+
+<main>
+  <!-- 1) 핵심 지표 — 경고율 2종을 나란히 둔다.
+       분모가 다른 두 지표를 함께 보는 것이 이 계기판의 설계 요점이다
+       (warn_rate 단독은 트래픽 믹스 변화에 흔들린다 — observability.py 참조). -->
+  <section>
+    <h2>검증 게이트 <span class="hint">답변이 나가기 전 근거 대조에서 경고가 붙은 비율</span></h2>
+    <div class="grid g3">
+      <div class="card">
+        <div class="label">전체 경고율 <code>warn_rate</code></div>
+        <div class="value" id="warnRate">—</div>
+        <div class="note">분모 = 모든 응답. 회피·무클레임 응답이 늘면 품질 변화 없이도 내려간다.</div>
+      </div>
+      <div class="card hero">
+        <div class="label">보정 경고율 <code>warn_rate_checked</code></div>
+        <div class="value" id="warnRateChecked">—</div>
+        <div class="note"><b>운영에서 보는 값.</b> 분모 = 수치·날짜 클레임이 있던 응답만 —
+          질문 구성이 바뀌어도 흔들리지 않는다.</div>
+      </div>
+      <div class="card">
+        <div class="label">집계 대상</div>
+        <div class="value" id="counts">—</div>
+        <div class="note" id="countsNote">누적 응답 / 경고 / 클레임 있던 응답</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2) 축별 분해 — 어느 축이 울리는지가 곧 조치 방향이다. -->
+  <section>
+    <h2>경고 축별 분해 <span class="hint">응답 단위 집계 · 한 응답에 같은 축이 여러 번이어도 +1</span></h2>
+    <div class="card" id="axesCard">
+      <div id="axes"></div>
+      <div class="note" style="margin-top:15px">
+        폐지본 인용·방향 충돌이 오르면 <b>답변 품질 회귀</b>,
+        미확인 수치가 급증하면 <b>검증기 오탐(alert fatigue)</b> 쪽을 먼저 본다.
+      </div>
+    </div>
+  </section>
+
+  <!-- 3) 등급 라벨 — 경고가 아니라 '근거의 출신'. 경고율만 보면 안 보이는 이동을 잡는다. -->
+  <section>
+    <h2>근거 출신 라벨 <span class="hint">경고는 아니지만 추이를 보는 신호</span></h2>
+    <div class="grid g2">
+      <div class="card">
+        <div class="label">케이스 서술 유래 <code>from_case</code></div>
+        <div class="value" id="caseLabeled">—</div>
+        <div class="note">규정 근거 대신 사용자가 쓴 케이스 서술에 기대기 시작하면 오른다.</div>
+      </div>
+      <div class="card">
+        <div class="label">웹 검색 유래 <code>from_web</code></div>
+        <div class="value" id="webLabeled">—</div>
+        <div class="note">사내 규정이 아니라 인터넷 결과에 기대기 시작하면 오른다.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4) 시스템 상태 — 이 수치가 '어떤 구성'에서 나온 것인지 함께 읽어야 한다. -->
+  <section>
+    <h2>시스템 상태</h2>
+    <div class="grid g2">
+      <div class="card">
+        <table class="kv">
+          <tr><td>실행 모드</td><td id="sysMode">—</td></tr>
+          <tr><td>MCP 서버</td><td id="sysMcp">—</td></tr>
+          <tr><td>규제문서 코퍼스</td><td id="sysCorpus">—</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <table class="kv">
+          <tr><td>하이브리드 α</td><td id="pAlpha">—</td></tr>
+          <tr><td>청킹 (크기 / 겹침)</td><td id="pChunk">—</td></tr>
+          <tr><td>회수 top_k / 리랭킹 top_n</td><td id="pTop">—</td></tr>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  카운터는 <b>API 프로세스 메모리</b>에 누적된다 — 재배포·재시작하면 0부터 다시 센다(외부 저장소를 두지 않은 데모 범위).<br>
+  이 페이지는 <code>GET /health</code> 응답만 읽어 5초마다 갱신한다. 시각화 계층을 따로 두지 않고
+  <b>지표 노출까지</b>를 애플리케이션의 책임으로 본 구성이다.
+</footer>
+
+<script>
+  // 축 정본은 서버(verifier.WARNING_AXES) — 여기서는 표시 이름만 매핑한다.
+  // 서버에 새 축이 생기면 라벨 없이도 키 그대로 그려지게 해서(fallback)
+  // '계기판에서 조용히 빠지는' 실패를 만들지 않는다.
+  const AXIS_LABEL = {
+    unsupported:         ['미확인 수치',      '근거에서 확인되지 않은 수치·날짜'],
+    direction_conflicts: ['방향 충돌',        '이내 ↔ 이후 등 방향 한정어'],
+    role_conflicts:      ['날짜 역할 충돌',   '인지일 ↔ 마감일 맞바꿈'],
+    question_origin:     ['질문 전제 확인',   '근거가 사용자 질문뿐 (비차단 라벨)'],
+    superseded_cited:    ['폐지본 인용',      '효력 없는 구판을 근거로 인용'],
+  };
+  const pct = v => (v * 100).toFixed(1) + '%';
+  const $ = id => document.getElementById(id);
+
+  function renderAxes(byAxis, total) {
+    const keys = Object.keys(AXIS_LABEL);
+    for (const k of Object.keys(byAxis || {})) if (!keys.includes(k)) keys.push(k);
+    const max = Math.max(1, ...keys.map(k => (byAxis || {})[k] || 0));
+    $('axes').innerHTML = keys.map(k => {
+      const [name, desc] = AXIS_LABEL[k] || [k, ''];
+      const n = (byAxis || {})[k] || 0;
+      const share = total ? ` (${pct(n / total)})` : '';
+      return `<div class="axis">
+        <div class="name">${name}<em>${desc}</em></div>
+        <div class="bar"><i style="width:${(n / max) * 100}%"></i></div>
+        <div class="cnt">${n}${share ? '' : ''}</div>
+      </div>`;
+    }).join('');
+  }
+
+  async function refresh() {
+    try {
+      const r = await fetch('/health', { cache: 'no-store' });
+      const d = await r.json();
+      const g = d.verification_gate || {};
+
+      // 헤더 배지
+      const m = $('mode');
+      m.textContent = d.mode === 'llm' ? 'LLM 모드' : '오프라인 모드';
+      m.className = 'badge ' + (d.mode === 'llm' ? 'llm' : 'offline');
+      const mc = $('mcp');
+      const mcpOk = (d.mcp || {}).status === 'ok';
+      mc.textContent = 'MCP ' + (mcpOk ? '연결' : '도달 불가');
+      mc.className = 'badge ' + (mcpOk ? 'ok' : 'bad');
+
+      if (!g.responses) {
+        // 빈 상태를 '0.0%'로 그리면 '완벽'으로 오독된다 — 측정 전임을 명시한다.
+        $('warnRate').textContent = '—';
+        $('warnRateChecked').textContent = '—';
+        $('counts').textContent = '0';
+        $('countsNote').textContent = '아직 집계된 응답이 없습니다 — 챗에서 질의하면 여기에 쌓입니다.';
+      } else {
+        $('warnRate').textContent = pct(g.warn_rate);
+        const wc = $('warnRateChecked');
+        wc.textContent = pct(g.warn_rate_checked);
+        wc.className = 'value' + (g.warn_rate_checked >= 0.3 ? ' warnhi' : '');
+        $('counts').innerHTML = `${g.responses}<small> 건</small>`;
+        $('countsNote').textContent =
+          `경고 ${g.warned}건 · 클레임이 있던 응답 ${g.checked_responses}건`;
+      }
+      renderAxes(g.by_axis, g.responses);
+      $('caseLabeled').innerHTML = `${g.case_labeled || 0}<small> 건</small>`;
+      $('webLabeled').innerHTML = `${g.web_labeled || 0}<small> 건</small>`;
+
+      // 시스템
+      $('sysMode').textContent = d.banner || d.mode || '—';
+      $('sysMcp').innerHTML = `<code>${d.mcp?.url || '—'}</code> · ${d.mcp?.status || '—'}`;
+      const rag = d.rag || {};
+      $('sysCorpus').textContent =
+        (rag.docs != null) ? `문서 ${rag.docs}건 · 청크 ${rag.chunks}개` : '—';
+      const p = d.rag_params || {};
+      $('pAlpha').textContent = p.hybrid_alpha ?? '—';
+      $('pChunk').textContent = `${p.chunk_size ?? '—'} / ${p.chunk_overlap ?? '—'}`;
+      $('pTop').textContent = `${p.retrieve_top_k ?? '—'} / ${p.rerank_top_n ?? '—'}`;
+
+      const t = new Date();
+      $('tick').textContent = `갱신 ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
+    } catch (e) {
+      // 조회 실패를 '이상 없음'으로 위장하지 않는다(계기판이 틀리면 없는 것보다 나쁘다).
+      $('tick').textContent = '갱신 실패 — ' + (e.message || e);
+    }
+  }
+  refresh();
+  setInterval(refresh, 5000);
+</script>
+</body>
+</html>

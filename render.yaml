@@ -1,0 +1,71 @@
+# Render Blueprint — RAPV-Assistant 2-서비스 배포 (완전 분리 구조)
+#
+# 사용법: Render 대시보드 → New + → Blueprint → 이 GitHub 리포 연결 →
+#         render.yaml 이 자동 인식되어 서비스 2개가 생성된다. (아래 DEPLOY.md 참고)
+#
+# 구조: rapv-mcp(web, MCP HTTP 서버·RAG 인덱스 소유 — Bearer 토큰 인증으로 공개) +
+#       rapv-assistant(web, FastAPI). API 는 Render 내부 네트워크로 MCP 에 붙고,
+# 외부 MCP 클라이언트(Claude Desktop 등)는 공개 URL + MCP_AUTH_TOKEN 으로 붙는다.
+# 주의: 서비스 타입은 생성 후 변경 불가 — 기존 rapv-mcp 가 pserv 로 만들어져
+# 있으면 대시보드에서 삭제 후 Blueprint 를 다시 sync 해 web 으로 재생성한다.
+# 이 앱은 '오래 사는 서버'(부팅 시 1회 RAG 인덱싱 + 인메모리 계기판)라
+# 서버리스(Vercel)보다 컨테이너/영속 프로세스 호스트(Render·Railway·Fly)가 맞다.
+services:
+  - type: web                   # 공개 URL — MCP_AUTH_TOKEN(Bearer) 인증 필수
+    name: rapv-mcp
+    runtime: python
+    rootDir: project
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    # 기동 게이트: 코퍼스·스모크 점검(--role mcp) 통과 후에만 MCP 서버 시작.
+    # MCP_REQUIRE_AUTH=1 이라 토큰이 비면 preflight 가 기동을 거부한다(무인증
+    # 공개 서버 방지 fail-closed).
+    startCommand: python -m src.preflight --role mcp && python -m src.mcp_server.server --transport http --host 0.0.0.0 --port 8001
+    healthCheckPath: /health    # 인증 밖의 custom route — 무토큰 헬스체크 가능
+    autoDeploy: true
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.15"
+      - key: MCP_REQUIRE_AUTH
+        value: "1"
+      - key: MCP_AUTH_TOKEN     # 대시보드에서 직접 입력(커밋 금지) — 아래 web 과 같은 값
+        sync: false
+  - type: web
+    name: rapv-assistant
+    runtime: python
+    rootDir: project            # 앱 루트는 레포 하위 project/
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    # 기동 전 점검(--role api): 자기 데이터 점검 + MCP 서버 실연결 대기(60초
+    # wait-loop 가 두 서비스의 기동 순서를 흡수). $PORT 는 Render 가 주입한다.
+    startCommand: python -m src.preflight --role api && uvicorn src.api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true            # main 에 푸시하면 자동 재배포
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.15"
+      # MCP 서버 내부 주소 — Render 가 rapv-mcp 의 내부 호스트명을 주입하고,
+      # src/config.py 가 http://{host}:{port}/mcp 로 조립한다. hostport/port
+      # 속성은 '열린 포트 감지' 뒤에야 채워져 첫 sync 에 빈 값이 될 수 있으므로,
+      # 정적인 host 속성 + startCommand 와 동일한 고정 포트(8001)를 쓴다.
+      # rapv-mcp 가 공개(web)여도 서비스 간 통신은 내부 네트워크 주소를 유지한다.
+      - key: MCP_SERVER_HOST
+        fromService:
+          type: web
+          name: rapv-mcp
+          property: host
+      - key: MCP_SERVER_PORT
+        value: "8001"
+      # 에이전트 루프 백엔드 — 세 구현(direct·pydantic_ai·langgraph)이 동일 계약이라
+      # 어느 쪽으로도 돌지만, 배포본은 시연 환경과 같은 백엔드로 고정한다
+      # (화면·발화·실물이 어긋나지 않게). langgraph 는 requirements.txt 에 있고,
+      # preflight check_config 가 기동 전에 import 가능 여부를 검증한다.
+      - key: AGENT_BACKEND
+        value: langgraph
+      - key: MCP_AUTH_TOKEN     # rapv-mcp 와 같은 값 — 에이전트가 Bearer 로 부착
+        sync: false
+      # LLM 모드(라이브 시연 등)가 필요하면 Render 대시보드 → Environment 에서
+      # 아래를 직접 추가한다. 값은 절대 커밋하지 말 것. 공개 URL 에 키를 넣으면
+      # 방문자가 API 비용을 태우므로, 통제된 시연에만 임시로 켜는 것을 권장한다.
+      # - key: ANTHROPIC_API_KEY
+      #   sync: false

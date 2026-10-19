@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>예제문100 빈칸 퀴즈</title>
+<style>
+  :root {
+    --bg: #f6f7f9; --card: #ffffff; --ink: #1c2733; --sub: #66788a;
+    --accent: #2563eb; --ok: #16a34a; --bad: #dc2626; --line: #dfe5ec;
+    --blank-bg: #eef2ff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10161d; --card: #1a232e; --ink: #e7edf3; --sub: #93a4b5;
+      --accent: #60a5fa; --ok: #4ade80; --bad: #f87171; --line: #2d3a48;
+      --blank-bg: #24304a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+    line-height: 1.7;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 14px; }
+  header h1 { font-size: 18px; margin: 0; flex: 1 1 auto; }
+  header a { color: var(--sub); font-size: 13px; text-decoration: none; }
+  .controls { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  select, button {
+    font: inherit; font-size: 14px; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); padding: 7px 12px; cursor: pointer;
+  }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .45; cursor: default; }
+  .bar { height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; margin-bottom: 6px; }
+  .bar > div { height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+  .meta { display: flex; justify-content: space-between; font-size: 13px; color: var(--sub); margin-bottom: 14px; }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+    padding: 22px 20px; box-shadow: 0 1px 3px rgba(0,0,0,.05);
+  }
+  .topic { font-size: 12.5px; color: var(--accent); font-weight: 700; margin-bottom: 10px; }
+  .sentence { font-size: 17.5px; word-break: keep-all; }
+  .sentence input {
+    font: inherit; font-size: 16.5px; color: var(--ink);
+    border: none; border-bottom: 2px solid var(--accent); border-radius: 6px 6px 0 0;
+    background: var(--blank-bg); padding: 1px 8px; margin: 0 2px;
+    text-align: center; outline: none; vertical-align: baseline;
+  }
+  .sentence input.ok  { border-bottom-color: var(--ok);  color: var(--ok);  font-weight: 700; }
+  .sentence input.bad { border-bottom-color: var(--bad); color: var(--bad); }
+  .feedback { min-height: 26px; margin-top: 12px; font-size: 14px; }
+  .feedback .ok  { color: var(--ok);  font-weight: 700; }
+  .feedback .bad { color: var(--bad); font-weight: 700; }
+  .answers { color: var(--sub); }
+  .btns { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .end { text-align: center; padding: 40px 20px; }
+  .end .score { font-size: 40px; font-weight: 800; margin: 8px 0 2px; }
+  .end .sub { color: var(--sub); margin-bottom: 22px; }
+  .hint { font-size: 12.5px; color: var(--sub); margin-top: 16px; }
+  kbd {
+    border: 1px solid var(--line); border-radius: 4px; padding: 0 5px;
+    font-size: 12px; background: var(--card);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>예제문100 빈칸 퀴즈</h1>
+    <a href="/dictionary">용어 사전 →</a>
+  </header>
+
+  <div class="controls">
+    <select id="topicSel"></select>
+    <button id="shuffleBtn">🔀 섞어서 다시</button>
+    <button id="resetBtn">↩ 처음부터</button>
+  </div>
+
+  <div class="bar"><div id="barFill"></div></div>
+  <div class="meta">
+    <span id="progress"></span>
+    <span id="score"></span>
+  </div>
+
+  <div class="card" id="card">
+    <div class="topic" id="topicLabel"></div>
+    <div class="sentence" id="sentence"></div>
+    <div class="feedback" id="feedback"></div>
+    <div class="btns">
+      <button class="primary" id="checkBtn">확인</button>
+      <button id="revealBtn">정답 보기</button>
+      <button id="nextBtn" disabled>다음 →</button>
+    </div>
+    <div class="hint">빈칸을 채우고 <kbd>Enter</kbd> = 확인 · 정답 후 <kbd>Enter</kbd> = 다음. 띄어쓰기·대소문자·가운뎃점은 무시하고 채점한다.</div>
+  </div>
+</div>
+
+<script>
+// ── 데이터: 예제문100 (dictionary.md '예제문100' 섹션과 동일 문장, {{정답|허용표기}} 마킹) ──
+const TOPICS = [
+  "임베딩·벡터", "청킹", "인덱싱·오프라인/온라인", "BM25·역색인·IDF",
+  "하이브리드·정규화·RRF", "Contextual Retrieval", "Bi-Encoder / Cross-Encoder",
+  "리랭킹·신호", "어휘 불일치·질의확장", "RAG 구조·평가",
+];
+const DATA = [
+  // 1. 임베딩·벡터
+  {t:0, s:"임베더는 텍스트 하나를 받아 고정 길이 {{벡터}} 하나로 변환한다."},
+  {t:0, s:"의미가 비슷한 두 문장은 {{임베딩 공간|벡터 공간}}에서 가까운 벡터로 놓인다."},
+  {t:0, s:"질의를 {{임베딩}}해 질의 벡터를 얻는다."},
+  {t:0, s:"청크를 임베딩해 청크 벡터를 만들고 {{벡터 스토어|벡터스토어|vector store|벡터 DB}}에 저장한다."},
+  {t:0, s:"질의 벡터와 청크 벡터 사이의 {{코사인 유사도|코사인유사도|cosine similarity}}를 계산한다."},
+  {t:0, s:"코사인 유사도가 높은 순으로 청크를 정렬해 top 8 을 {{회수}}한다."},
+  {t:0, s:"\"부작용\"과 \"이상사례\"는 어휘가 달라도 임베딩 공간에서는 {{가깝게|가까이}} 놓인다."},
+  {t:0, s:"임베더를 교체하면 기존 청크 벡터를 전부 다시 만들어야 한다({{재인덱싱|리인덱싱}})."},
+  {t:0, s:"문서 전체를 벡터 하나로 임베딩하면 여러 주제가 {{평균}}되어 변별력이 떨어진다."},
+  {t:0, s:"\"REG-002\" 같은 {{식별자}}는 임베딩 공간에서 의미가 뭉개져 벡터 검색이 놓치기 쉽다."},
+  // 2. 청킹
+  {t:1, s:"문서를 {{청킹}}해 검색 단위인 청크로 나눈다."},
+  {t:1, s:"청크 크기 500자, 겹침 80자의 {{슬라이딩 윈도우|슬라이딩윈도우|sliding window}}로 분할한다."},
+  {t:1, s:"마크다운 {{헤딩|헤더|제목}} 경계로 먼저 나눠, 한 주제가 청크 중간에서 끊기지 않게 한다."},
+  {t:1, s:"{{겹침|overlap|오버랩}}이 없으면 경계에 걸린 문장이 앞뒤 어느 청크에서도 온전하지 않다."},
+  {t:1, s:"청크는 잘리는 순간 \"자기가 어느 문서의 어느 {{맥락}}인지\"를 잃는다."},
+  {t:1, s:"질의는 {{청킹}}하지 않는다 — 통째로 임베딩해 벡터 1개로 만든다."},
+  {t:1, s:"이 코퍼스는 섹션이 짧아 청킹 파라미터(size·overlap)에 {{둔감}}하다 — 스윕으로 실측했다."},
+  {t:1, s:"각 청크는 doc_id·버전·시행일 {{메타데이터|메타 데이터}}를 함께 들고 다닌다."},
+  {t:1, s:"너무 잘게 자르면 {{맥락}}이 끊기고, 너무 크게 자르면 {{주제}}가 섞인다."},
+  {t:1, s:"청킹은 문서 쪽 경로에만 있는 {{오프라인}} 전처리 단계다."},
+  // 3. 인덱싱 / 오프라인·온라인
+  {t:2, s:"인덱싱은 {{오프라인}} 단계라 느려도 되고, 비용을 문서당 {{한 번|한번|1번|1회}}만 지불한다."},
+  {t:2, s:"검색은 {{온라인}} 단계라 빨라야 하고, 비용을 {{질의|쿼리}}마다 지불한다."},
+  {t:2, s:"질의와 무관한 계산은 전부 {{인덱싱}} 시점으로 밀어낸다."},
+  {t:2, s:"청킹·맥락 부여·임베딩·역색인 구축은 모두 {{인덱싱}} 때 일어난다."},
+  {t:2, s:"{{코퍼스|corpus}}는 검색 대상이 되는 문서 전체의 모음이다 — 이 데모는 규제문서 13건."},
+  {t:2, s:"문서가 개정되면 모델 {{재학습|재훈련}} 없이 코퍼스를 교체하고 다시 인덱싱하면 된다."},
+  {t:2, s:"{{벡터 스토어|벡터스토어|vector store}}는 청크 벡터를 저장하고 유사도 검색을 제공한다."},
+  {t:2, s:"이 데모는 인메모리 전수 비교지만, 실무 규모에서는 {{ANN|근사 최근접 탐색}}을 제공하는 Vector DB 를 쓴다."},
+  {t:2, s:"시행일 파싱은 질의마다 반복하지 않도록 {{인덱싱}} 때 한 번만 해 둔다."},
+  {t:2, s:"\"미리 계산할 수 있는 것\"과 \"{{질의|쿼리}}가 와야만 계산할 수 있는 것\"의 구분이 설계의 출발점이다."},
+  // 4. BM25·역색인·IDF
+  {t:3, s:"BM25 는 {{어휘|키워드}} 기반 검색 알고리즘이다."},
+  {t:3, s:"질의 단어가 청크에 많이 등장할수록 {{BM25}} 점수가 올라간다."},
+  {t:3, s:"코퍼스 전체에서 희귀한 단어일수록 {{IDF|역문서빈도|역문서 빈도}}가 높아 강한 신호가 된다."},
+  {t:3, s:"모든 문서에 나오는 \"의약품\"은 IDF 가 낮아 {{변별력}}이 없다."},
+  {t:3, s:"\"PSUR\"·\"제31조\" 같은 {{정확 일치|정확일치}} 검색어는 BM25 가 잘 잡는다."},
+  {t:3, s:"BM25 는 \"부작용\"과 \"이상사례\"가 같은 뜻인 줄 모른다 — {{어휘 불일치|어휘불일치}}에 무력하다."},
+  {t:3, s:"{{역색인|inverted index}}은 \"단어 → 그 단어가 나오는 청크 목록\"의 매핑이다."},
+  {t:3, s:"BM25 인덱스는 인덱싱 때 {{역색인}}과 단어별 문서 빈도를 구축한다."},
+  {t:3, s:"BM25 점수는 상한이 없어 코사인 유사도(0~1)와 {{스케일|단위}}이 다르다."},
+  {t:3, s:"벡터 검색과 BM25 는 {{약점}}이 정확히 반대라서 서로를 보완한다."},
+  // 5. 하이브리드·정규화·RRF
+  {t:4, s:"{{하이브리드}} 검색은 벡터 검색과 BM25 를 함께 돌려 결과를 결합한다."},
+  {t:4, s:"두 점수를 그대로 더하면 스케일 큰 쪽이 지배하므로 {{min-max 정규화|minmax 정규화|정규화}}로 맞춘다."},
+  {t:4, s:"min-max 정규화는 집합의 최솟값을 {{0|영}}, 최댓값을 {{1|일}}로 선형 변환한다."},
+  {t:4, s:"정규화한 두 점수를 {{alpha|알파|α}} 가중합으로 결합한다."},
+  {t:4, s:"alpha 를 올리면 {{벡터}}(의미) 쪽으로, 내리면 {{BM25}}(키워드) 쪽으로 기운다."},
+  {t:4, s:"식별자·조항번호 질의가 지배적인 서비스라면 alpha 를 {{내린다|낮춘다}}."},
+  {t:4, s:"HYBRID_ALPHA 는 {{.env|env|환경변수}}에서 조절하는 하이퍼파라미터다 — 코드 밖으로 빼 두었다."},
+  {t:4, s:"최적 alpha 는 감으로 정하지 않고 평가셋 {{스윕|sweep}}으로 실측한다."},
+  {t:4, s:"RRF 는 점수를 버리고 양쪽 순위표의 {{등수|순위|랭크}}만 사용한다."},
+  {t:4, s:"RRF 점수는 등수의 {{역수}} 1/(60+등수) 를 합산해 만든다."},
+  {t:4, s:"서로 다른 시스템(외부 Vector DB + 자체 BM25)의 점수를 섞을 때는 {{RRF}}가 견고한 기본값이다."},
+  {t:4, s:"두 점수를 모두 직접 계산하고 {{평가셋|평가 셋}}이 있으면 가중합으로 정밀 조율한다."},
+  // 6. Contextual Retrieval
+  {t:5, s:"{{Contextual Retrieval|컨텍스추얼 리트리벌}} 은 임베딩 전에 청크 앞에 맥락을 덧붙이는 기법이다."},
+  {t:5, s:"원조 방식은 LLM 에게 {{문서 전체|문서}}와 청크를 주고 맥락 문장을 생성시킨다."},
+  {t:5, s:"맥락의 재료는 그 청크가 속한 문서 하나와 청크뿐이라 {{질의|쿼리}}와 무관하다."},
+  {t:5, s:"그래서 맥락 문장은 검색 때가 아니라 {{인덱싱}} 때 한 번만 생성한다."},
+  {t:5, s:"이 데모는 각 청크 앞에 [문서제목 > 섹션제목] {{접두어|prefix|접두사}}를 붙이는 경량판을 쓴다."},
+  {t:5, s:"제목·섹션명이 핵심 어휘를 담은 코퍼스에서는 {{경량판|경량 버전}}이 원조에 근접한다."},
+  {t:5, s:"제목이 빈약하고 구조 없는 코퍼스에서는 {{LLM}} 생성 맥락으로 업그레이드한다."},
+  {t:5, s:"문서 전체를 청크마다 반복 투입하므로 {{prompt caching|프롬프트 캐싱|프롬프트 캐시}}과 세트로 쓴다."},
+  // 7. Bi-Encoder / Cross-Encoder
+  {t:6, s:"{{Bi-Encoder|바이인코더|바이 인코더}} 는 질의와 청크를 각자 따로 임베딩해 벡터 두 개를 만든다."},
+  {t:6, s:"Bi-Encoder 에서 질의와 청크는 {{코사인 유사도}} 계산에서 처음 만난다."},
+  {t:6, s:"Bi-Encoder 는 청크 벡터를 {{인덱싱}} 때 미리 만들어 둘 수 있다."},
+  {t:6, s:"{{Cross-Encoder|크로스인코더|크로스 인코더}} 는 질의와 청크를 한 입력으로 이어붙여 모델에 함께 넣는다."},
+  {t:6, s:"Cross-Encoder 는 벡터를 만들지 않고 관련도 {{점수|스코어}}를 바로 출력한다."},
+  {t:6, s:"Cross-Encoder 는 입력에 {{질의|쿼리}}가 필요해서 미리 계산이 불가능하다."},
+  {t:6, s:"Cross-Encoder 를 전체 청크에 돌리면 청크 수만큼 {{모델}}을 실행해야 해 감당이 안 된다."},
+  {t:6, s:"1차 검색은 {{Bi-Encoder|바이인코더}} 로 빠르고 거칠게, 리랭킹은 {{Cross-Encoder|크로스인코더}} 로 느리고 정밀하게."},
+  {t:6, s:"벡터끼리의 코사인 유사도 계산은 {{산수|산술|연산}}라 전체 청크를 훑어도 순식간이다."},
+  {t:6, s:"임베더는 {{벡터}}를 만들고, Cross-Encoder 는 {{점수|스코어}}를 만든다 — 출력물이 다르다."},
+  {t:6, s:"이 데모의 리랭커는 모델 없이 {{토큰}} 규칙으로 Cross-Encoder 를 근사한다."},
+  {t:6, s:"\"질의와 청크를 {{같이|함께|동시에}} 본다\"가 Cross-Encoder 계열의 본질이다."},
+  // 8. 리랭킹·신호
+  {t:7, s:"{{리랭킹|재랭킹|리랭크|re-ranking}} 은 1차 검색이 넓게 회수한 top 8 을 재채점해 top 3 으로 좁힌다."},
+  {t:7, s:"리랭킹은 질의가 와야 실행되는 {{온라인}} 단계라 소수 후보에만 돌린다."},
+  {t:7, s:"1차가 {{재현율|recall}}(놓치지 않기), 2차가 {{정밀도|precision}}(오답 거르기)를 맡는 역할 분리다."},
+  {t:7, s:"{{coverage|커버리지}} 신호는 청크가 질의 토큰을 얼마나 덮는지를 IDF 가중으로 잰다."},
+  {t:7, s:"{{phrase|프레이즈|구문}} 신호는 질의 문자열이 청크에 통째로 등장하면 켜지는 스위치다."},
+  {t:7, s:"구어체 질의에서 phrase 는 대개 {{0|0점|영|영점}}이지만, 감점이 아니라 보너스 부재일 뿐이다."},
+  {t:7, s:"{{section|섹션}} 신호는 같은 문서 안에서 정답 섹션을 고른다."},
+  {t:7, s:"섹션 신호에 문서 제목을 섞으면 같은 문서 청크끼리 {{변별}}이 죽는다."},
+  {t:7, s:"title 신호는 \"제목 토큰이 질의로 설명되는 비율\"로 {{하드 네거티브|하드네거티브|hard negative}}를 감점한다."},
+  {t:7, s:"{{하드 네거티브|하드네거티브|hard negative}} 는 어휘는 겹치지만 정답이 아닌 청크다."},
+  {t:7, s:"리랭커 점수에 1차 점수를 10% 섞어(rerank_weight=0.9) 순위를 {{안정화}}한다."},
+  {t:7, s:"실무 전환 시 이 리랭커 자리는 진짜 {{Cross-Encoder|크로스인코더}} 모델로 교체된다."},
+  // 9. 어휘 불일치·질의확장
+  {t:8, s:"사용자는 \"부작용\"이라 묻고 문서는 \"이상사례\"라 쓴다 — 이것이 {{어휘 불일치|어휘불일치}}다."},
+  {t:8, s:"{{질의확장|질의 확장|query expansion|쿼리 확장}} 은 검색 전에 질의에 정식 용어를 덧붙여 이 간극을 메운다."},
+  {t:8, s:"원 질의를 교체하지 않고 보존한 채 {{덧붙이기|append|추가}}만 한다."},
+  {t:8, s:"확장을 과하게 하면 엉뚱한 문서를 끌어오는 {{주제 표류|주제표류|topic drift}}가 생긴다."},
+  {t:8, s:"동의어 사전은 구어 → 정식 용어의 {{단방향}}이다."},
+  {t:8, s:"확장으로 추가된 토큰은 리랭커에서 원 질의 토큰의 {{절반|반|1/2|0.5}} 가중만 받는다."},
+  {t:8, s:"질의확장은 {{BM25}} 와 벡터 양쪽 모두에 추가 매칭 기회를 만든다."},
+  {t:8, s:"{{질의확장|질의 확장}} → {{하이브리드 검색|하이브리드}} → {{리랭킹|재랭킹}} 순으로 검색 파이프라인이 흐른다."},
+  // 10. RAG 구조·평가
+  {t:9, s:"{{RAG|검색 증강 생성}} 는 검색으로 근거 문서를 찾아 프롬프트에 넣고 LLM 이 답하게 하는 구조다."},
+  {t:9, s:"검색 파이프라인에 {{답변 생성|생성|답변생성}}까지 합쳐야 RAG 파이프라인이다."},
+  {t:9, s:"\"넓게 회수 → 좁게 선별\" 구조를 {{2단계 검색|2단계검색|two-stage retrieval|투 스테이지}}이라 부른다."},
+  {t:9, s:"근거가 실재하므로 답변에 출처를 붙일 수 있다 — {{추적성}}."},
+  {t:9, s:"근거가 부족하면 \"모른다\"고 답하는 {{abstention|앱스텐션}} 이 환각을 억제한다."},
+  {t:9, s:"{{Hit@1|hit1|힛앳원}} 은 정답 문서가 1등으로 회수된 질의의 비율이다."},
+  {t:9, s:"{{하이퍼파라미터|하이퍼 파라미터}} 는 코드 밖(.env)으로 빼고, 값은 스윕으로 실측해 정한다."},
+  {t:9, s:"LLM 은 자기 학습 지식이 아니라 프롬프트에 넣어준 {{근거}} 문서를 읽고 답한다."},
+];
+
+// ── 상태 ──
+let order = [];        // 출제 순서 (DATA 인덱스 배열)
+let pos = 0;           // 현재 위치
+let correct = 0, wrong = 0;
+let wrongIdx = [];     // 틀린 문제 인덱스 (다시 풀기용)
+let resolved = false;  // 현재 문제 확정 여부(정답 or 공개)
+let attempted = false; // 현재 문제에서 '확인'을 이미 눌렀는가
+
+const $ = (id) => document.getElementById(id);
+
+// 채점 정규화: 공백·가운뎃점·하이픈류 무시, 소문자화
+const norm = (s) => s.normalize("NFC").toLowerCase().replace(/[\s·\-–—_/]/g, "");
+
+function buildTopicSel() {
+  const sel = $("topicSel");
+  sel.innerHTML = '<option value="-1">전체 (100문장)</option>' +
+    TOPICS.map((t, i) => {
+      const n = DATA.filter(d => d.t === i).length;
+      return `<option value="${i}">${t} (${n})</option>`;
+    }).join("");
+}
+
+function start(shuffle) {
+  const t = parseInt($("topicSel").value, 10);
+  order = DATA.map((_, i) => i).filter(i => t === -1 || DATA[i].t === t);
+  if (shuffle) for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  pos = 0; correct = 0; wrong = 0; wrongIdx = [];
+  renderCurrent();
+}
+
+function renderCurrent() {
+  resolved = false; attempted = false;
+  const card = $("card");
+  if (pos >= order.length) return renderEnd();
+
+  const item = DATA[order[pos]];
+  $("topicLabel").textContent = TOPICS[item.t];
+  $("feedback").innerHTML = "";
+  $("nextBtn").disabled = true;
+  $("checkBtn").disabled = false;
+  $("revealBtn").disabled = false;
+
+  // {{정답|허용...}} → input 으로 치환
+  const holder = $("sentence");
+  holder.innerHTML = "";
+  item.s.split(/(\{\{.+?\}\})/g).forEach(part => {
+    const m = part.match(/^\{\{(.+)\}\}$/);
+    if (!m) { holder.appendChild(document.createTextNode(part)); return; }
+    const alts = m[1].split("|");
+    const inp = document.createElement("input");
+    inp.dataset.alts = JSON.stringify(alts);
+    inp.autocomplete = "off"; inp.spellcheck = false;
+    inp.size = Math.max(4, Math.min(22, alts[0].length + 2));
+    holder.appendChild(inp);
+  });
+  updateMeta();
+  const first = holder.querySelector("input");
+  if (first) first.focus();
+}
+
+function inputs() { return [...$("sentence").querySelectorAll("input")]; }
+
+function check() {
+  if (resolved) return;
+  let allOk = true;
+  inputs().forEach(inp => {
+    const alts = JSON.parse(inp.dataset.alts).map(norm);
+    const ok = alts.includes(norm(inp.value));
+    inp.classList.toggle("ok", ok);
+    inp.classList.toggle("bad", !ok);
+    if (!ok) allOk = false;
+  });
+  if (allOk) {
+    // 첫 '확인'에 전부 맞아야 맞음으로 집계
+    if (!attempted) correct++; else { wrong++; wrongIdx.push(order[pos]); }
+    finishCurrent(true);
+  } else {
+    if (!attempted) attempted = true;   // 재시도 허용, 이후 맞아도 '틀림' 집계
+    $("feedback").innerHTML = '<span class="bad">✗ 다시 시도하거나 정답을 확인해봐.</span>';
+  }
+  updateMeta();
+}
+
+function reveal() {
+  if (resolved) return;
+  inputs().forEach(inp => {
+    const alts = JSON.parse(inp.dataset.alts);
+    inp.value = alts[0];
+    inp.classList.remove("bad"); inp.classList.add("ok");
+  });
+  wrong++; wrongIdx.push(order[pos]);
+  finishCurrent(false);
+  updateMeta();
+}
+
+function finishCurrent(gotIt) {
+  resolved = true;
+  $("checkBtn").disabled = true;
+  $("revealBtn").disabled = true;
+  $("nextBtn").disabled = false;
+  const answers = inputs().map(inp => JSON.parse(inp.dataset.alts).join(" / ")).join(" · ");
+  $("feedback").innerHTML =
+    (gotIt ? '<span class="ok">✓ 정답!</span> ' : '<span class="bad">정답 공개.</span> ') +
+    `<span class="answers">허용 표기: ${answers}</span>`;
+  $("nextBtn").focus();
+}
+
+function next() { pos++; renderCurrent(); }
+
+function updateMeta() {
+  $("progress").textContent = `${Math.min(pos + 1, order.length)} / ${order.length}`;
+  $("score").textContent = `맞음 ${correct} · 틀림 ${wrong}`;
+  $("barFill").style.width = order.length ? `${(pos / order.length) * 100}%` : "0";
+}
+
+function renderEnd() {
+  $("barFill").style.width = "100%";
+  $("progress").textContent = `${order.length} / ${order.length}`;
+  const rate = order.length ? Math.round((correct / order.length) * 100) : 0;
+  $("card").innerHTML = `
+    <div class="end">
+      <div>완주! 🎉</div>
+      <div class="score">${rate}점</div>
+      <div class="sub">${order.length}문장 중 ${correct}개 정답 · ${wrong}개 오답</div>
+      <div class="btns" style="justify-content:center">
+        ${wrongIdx.length ? '<button class="primary" id="retryWrongBtn">틀린 것만 다시 (' + wrongIdx.length + ')</button>' : ""}
+        <button id="againBtn">처음부터</button>
+      </div>
+    </div>`;
+  const rw = $("retryWrongBtn");
+  if (rw) rw.onclick = () => {
+    order = [...wrongIdx]; pos = 0; correct = 0; wrong = 0; wrongIdx = [];
+    restoreCard(); renderCurrent();
+  };
+  $("againBtn").onclick = () => { restoreCard(); start(false); };
+}
+
+// end 화면이 card 내부를 갈아치우므로 원래 구조를 복원
+const CARD_HTML = document.getElementById("card").innerHTML;
+function restoreCard() {
+  $("card").innerHTML = CARD_HTML;
+  bindCardButtons();
+}
+function bindCardButtons() {
+  $("checkBtn").onclick = check;
+  $("revealBtn").onclick = reveal;
+  $("nextBtn").onclick = next;
+}
+
+// ── 이벤트 ──
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" || e.isComposing) return;
+  if (!$("checkBtn")) return; // end 화면
+  if (resolved) next(); else check();
+});
+$("topicSel").onchange = () => start(false);
+$("shuffleBtn").onclick = () => start(true);
+$("resetBtn").onclick = () => start(false);
+
+buildTopicSel();
+bindCardButtons();
+start(false);
+</script>
+</body>
+</html>

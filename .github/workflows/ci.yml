@@ -1,0 +1,48 @@
+name: RAPV-Assistant CI
+
+# RAG/MCP/Agent 데모의 회귀 방지 — 테스트 + 검색품질/신뢰성 평가를 매 푸시마다 실행.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: project
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: 배포 전 점검 (preflight — 설정·코퍼스·업무데이터·스모크 게이트)
+        run: python -m src.preflight
+
+      - name: Run tests (pytest)
+        run: pytest
+
+      - name: RAG 검색 품질 평가 (회귀 확인)
+        run: python -m eval.evaluate
+
+      - name: 답변 신뢰성(faithfulness) 평가
+        run: python -m eval.faithfulness
+
+      - name: PV 워크플로 평가 (트리아지·인과성·코딩·보고요건)
+        run: python -m eval.pv_eval
+
+      - name: 답변 사후 검증기 평가 (메타모픽 — 변조 탐지·오탐 감시)
+        run: python -m eval.verify_eval
+
+      - name: 계획 능력 평가 (도구 선택·인자 — 오프라인 결정론 라우터 핀)
+        run: python -m eval.plan_eval
+
+      - name: 입력 견고성 평가 (오타 섭동·구어·적대 입력)
+        run: python -m eval.robustness_eval

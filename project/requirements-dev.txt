@@ -1,0 +1,6 @@
+# 개발/테스트 전용 의존성 (런타임 requirements.txt 와 분리)
+-r requirements.txt
+pytest==9.1.1
+pytest-asyncio==1.4.0
+httpx==0.28.1          # FastAPI TestClient(test_api.py) — API 엔트리포인트 부팅 테스트
+pypdf==6.14.2          # PDF 인제스트 경로(scripts/ingest_pdf.py) — 실무 파서 교체 자리의 최소 구현

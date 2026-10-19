@@ -1,0 +1,6 @@
+# 밀집임베딩(선택 설치) — 기본 설치는 경량(TF-IDF 폴백)으로 동작한다.
+#   .venv/bin/pip install -r requirements-ml.txt
+#   .venv/bin/python scripts/download_embedding_model.py   # 모델 1회 다운로드
+# torch 등 무거운 전이 의존성(수백 MB)이 딸려오므로 requirements.txt 와 분리한다
+# (기본 Docker 이미지·CI 는 이 파일 없이 돌고, EMBEDDER_KIND=auto 가 TF-IDF 로 폴백).
+sentence-transformers==5.7.0

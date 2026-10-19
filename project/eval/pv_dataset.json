@@ -1,0 +1,337 @@
+{
+ "_comment": "PV 워크플로(트리아지→인과성→코딩→최소보고요건) 수치 평가용 라벨 데이터셋. 라벨은 '도메인 정답'(REG-005 기준·WHO-UMC·MedDRA 감각)이지 코드 출력의 복사가 아니다 — 사전이 못 잡는 롱테일 구어(저혈당·울렁거림·난청)를 일부러 포함해 코딩 재현율이 정직하게 1.0 미만이 되도록 설계했다.",
+ "items": [
+  {
+   "id": "PV-001",
+   "case": "45세 남성 환자가 항생제A정을 복용 후 30분 만에 아나필락시스 쇼크가 발생해 응급실로 이송되어 입원했습니다. 담당 의사가 보고했습니다.",
+   "expect": {
+    "serious": true,
+    "deadline_days": 0,
+    "causality": "Possible",
+    "pts": [
+     "아나필락시스 반응"
+    ],
+    "reportable": true
+   },
+   "note": "사망·생명위협 → 지체 없이(D+0). 시간관계만 있으므로 인과성은 Possible 이상 올리지 않는다."
+  },
+  {
+   "id": "PV-002",
+   "case": "환자가 항암제B주사를 투여 후 3일째 사망하였습니다. 병원에서 보고된 케이스입니다.",
+   "expect": {
+    "serious": true,
+    "deadline_days": 0,
+    "causality": "Possible",
+    "pts": [],
+    "reportable": true
+   },
+   "note": "사망은 중대성 기준이자 결과이며 이 소사전의 PT 범위 밖(코딩 0건이어도 중대성 기준으로 ④ 충족)."
+  },
+  {
+   "id": "PV-003",
+   "case": "62세 여성 환자가 당뇨약C정을 복용 후 심한 저혈당으로 입원했습니다. 약사가 보고했습니다.",
+   "expect": {
+    "serious": true,
+    "deadline_days": 15,
+    "causality": "Possible",
+    "pts": [
+     "저혈당"
+    ],
+    "reportable": true,
+    "candidate_pts": [
+     "저혈당"
+    ]
+   },
+   "note": "코딩 1계층(확정 사전) 롱테일 — 확정 재현율은 정직하게 깎이되, 2계층(LLT 참조)이 '저혈당' 후보를 제시해야 한다(사람 확정 대기)."
+  },
+  {
+   "id": "PV-004",
+   "case": "환자가 항히스타민제D정을 복용 후 심한 두드러기와 가려움이 생겼고, 복용 중단 후 호전되었습니다. 본인이 직접 보고했습니다.",
+   "expect": {
+    "serious": false,
+    "deadline_days": null,
+    "causality": "Probable",
+    "pts": [
+     "두드러기",
+     "소양증"
+    ],
+    "reportable": true
+   },
+   "note": "시간관계 + dechallenge(대체원인 미언급 — 배제 확인이 아니므로 Certain 아님) → Probable. 소비자(본인) 보고도 유효한 보고자."
+  },
+  {
+   "id": "PV-005",
+   "case": "환자가 진통제E정을 복용 후 발진이 나타났고 중단하니 사라졌으며, 다시 복용하니 재발했습니다. 병용약물이나 기저질환은 없었습니다. 의사가 보고했습니다.",
+   "expect": {
+    "serious": false,
+    "deadline_days": null,
+    "causality": "Certain",
+    "pts": [
+     "발진"
+    ],
+    "reportable": true
+   },
+   "note": "rechallenge 양성에 대체 원인 '명시 배제'까지 확인된 교과서적 Certain 케이스 — WHO-UMC Certain 은 대체 원인 배제가 '확인'될 때만이며, 미언급 케이스는 Probable 상한(v8 규칙 강화 반영)."
+  },
+  {
+   "id": "PV-006",
+   "case": "고혈압 기저질환이 있는 환자가 항생제F정을 복용 후 어지러움을 호소했습니다. 간호사가 보고했습니다.",
+   "expect": {
+    "serious": false,
+    "deadline_days": null,
+    "causality": "Possible",
+    "pts": [
+     "어지러움"
+    ],
+    "reportable": true
+   },
+   "note": "시간관계는 있으나 대체 원인(기저질환) 가능성 → Possible 에 머문다."
+  },
+  {
+   "id": "PV-007",
+   "case": "환자가 신약G정을 복용했습니다. 다만 수개월 전부터 두통이 지속되어 왔고 병용 약물이 여러 개 있습니다. 의사가 보고했습니다.",
+   "expect": {
+    "serious": false,
+    "deadline_days": null,
+    "causality": "Unlikely",
+    "pts": [
+     "두통"
+    ],
+    "reportable": true
+   },
+   "note": "시간적 선후관계 서술 없음 + 대체원인(병용약) → Unlikely."
+  },
+  {
+   "id": "PV-008",
+   "case": "지인이 약을 먹고 몸이 좋지 않다고 합니다.",
+   "expect": {
+    "serious": false,
+    "deadline_days": null,
+    "causality": "Unassessable",
+    "pts": [],
+    "reportable": false,
+    "missing_n": 4
+   },
+   "note": "환자·보고자·의심약·이상사례 4요소 전부 미충족 — '유효한 보고'가 아니라 정보 보완 대상."
+  },
+  {
+   "id": "PV-009",
+   "case": "[이름]님(45세 남성)이 소염진통제H정을 복용 후 구토와 어지러움이 발생해 입원했습니다. 보호자가 보고했습니다.",
+   "expect": {
+    "serious": true,
+    "deadline_days": 15,
+    "causality": "Possible",
+    "pts": [
+     "구토",
+     "어지러움"
+    ],
+    "reportable": true
+   },
+   "note": "PII 마스킹된 입력([이름]) 위에서도 '식별 가능한 환자' 존재 신호(나이·성별)로 요건이 충족되어야 한다."
+  },
+  {
+   "id": "PV-010",
+   "case": "58세 여성 환자가 항생제I캡슐을 복용 후 허가사항에 기재된 알려진 부작용인 설사가 발생했으나 증상이 심해 입원했습니다. 의사가 보고했습니다.",
+   "expect": {
+    "serious": true,
+    "deadline_days": 15,
+    "causality": "Possible",
+    "pts": [
+     "설사"
+    ],
+    "reportable": true,
+    "expectedness": "expected"
+   },
+   "note": "예상된(labelled) 반응이라도 보수적으로 15일 트래킹을 유지(정기보고 전환은 사람 확인)."
+  },
+  {
+   "id": "PV-011",
+   "case": "환자가 감기약J시럽을 복용 후 가벼운 두통과 오심을 느꼈습니다. 약사가 보고했습니다.",
+   "expect": {
+    "serious": false,
+    "deadline_days": null,
+    "causality": "Possible",
+    "pts": [
+     "두통",
+     "오심"
+    ],
+    "reportable": true
+   },
+   "note": "비중대 → 신속보고가 아니라 정기보고(PSUR) 경로."
+  },
+  {
+   "id": "PV-012",
+   "case": "환자가 항생제Q정을 복용 후 구토가 심해 입원했습니다. 의사가 보고했습니다.",
+   "args": {
+    "awareness_date": "2026-06-01"
+   },
+   "expect": {
+    "serious": true,
+    "deadline_days": 15,
+    "deadline_date": "2026-06-16",
+    "causality": "Possible",
+    "pts": [
+     "구토"
+    ],
+    "reportable": true
+   },
+   "note": "기한 '날짜 연산' 검증 — 인지일 2026-06-01 + 15일 = 2026-06-16. LLM에 맡기지 않는 이유가 이 계산."
+  },
+  {
+   "id": "PV-013",
+   "case": "규정을 검토한 결과 특이사항이 없었습니다. 일정 조정만 필요합니다.",
+   "expect": {
+    "serious": false,
+    "deadline_days": null,
+    "causality": "Unassessable",
+    "pts": [],
+    "reportable": false,
+    "missing_n": 4
+   },
+   "note": "'규정·일정' 같은 -정 일반명사의 의심약 오탐 가드(노출 맥락 lookahead) 검증."
+  },
+  {
+   "id": "PV-014",
+   "case": "환자가 항생제K정을 복용 후 온몸이 가렵고, 계속 가려워서 잠을 못 잤다고 합니다. 의사가 보고했습니다.",
+   "expect": {
+    "serious": false,
+    "deadline_days": null,
+    "causality": "Possible",
+    "pts": [
+     "소양증"
+    ],
+    "reportable": true
+   },
+   "note": "같은 PT(소양증)의 중복 표현은 1건으로 dedupe — 집계 왜곡 방지."
+  },
+  {
+   "id": "PV-015",
+   "case": "환자가 백신L주사를 접종 후 발열과 두통이 있었고, 이어 온몸에 두드러기가 났습니다. 간호사가 보고했습니다.",
+   "expect": {
+    "serious": false,
+    "deadline_days": null,
+    "causality": "Possible",
+    "pts": [
+     "발열",
+     "두통",
+     "두드러기"
+    ],
+    "reportable": true
+   },
+   "note": "다중 증상 코딩 + 서술 등장 순서 유지."
+  },
+  {
+   "id": "PV-016",
+   "case": "환자가 위장약M정을 복용 후 속이 울렁거리고 힘들다고 호소했습니다. 약사가 보고했습니다.",
+   "expect": {
+    "serious": false,
+    "deadline_days": null,
+    "causality": "Possible",
+    "pts": [
+     "오심"
+    ],
+    "reportable": true,
+    "candidate_pts": [
+     "오심"
+    ]
+   },
+   "note": "'속이 울렁거림'은 오심의 구어 — 1계층 미수록(확정 재현율 감점)이지만 2계층 LLT 후보로 제시되고, ④요건은 후보 신호로 충족되어 reportable=True(코딩 실패가 보고요건 미충족으로 연쇄되지 않아야 한다)."
+  },
+  {
+   "id": "PV-017",
+   "case": "환자가 조영제N주사를 투여 직후 심정지가 발생해 소생술을 받았습니다. 의사가 보고했습니다.",
+   "expect": {
+    "serious": true,
+    "deadline_days": 0,
+    "causality": "Possible",
+    "pts": [
+     "심정지"
+    ],
+    "reportable": true
+   },
+   "note": "입원 언급이 없어도 생명위협(심정지·소생술) 자체로 지체 없이 보고."
+  },
+  {
+   "id": "PV-018",
+   "case": "환자가 항결핵제O정을 복용 후 청력 상실이 발생했습니다. 의사가 보고했습니다.",
+   "expect": {
+    "serious": true,
+    "deadline_days": 15,
+    "causality": "Possible",
+    "pts": [
+     "난청"
+    ],
+    "reportable": true,
+    "candidate_pts": [
+     "난청"
+    ]
+   },
+   "note": "지속적/중대한 장애 기준. PT '난청(Deafness)'은 1계층 미수록 — 2계층이 LLT '청력 상실'로 후보 제시해야 한다."
+  },
+  {
+   "id": "PV-019",
+   "case": "환자가 세팔로스포린 계열 항생제 복용 후 두드러기가 생겼습니다. 의사가 보고했습니다.",
+   "args": {
+    "suspected_drug": "세파클러 캡슐 250mg"
+   },
+   "expect": {
+    "serious": false,
+    "deadline_days": null,
+    "causality": "Possible",
+    "pts": [
+     "두드러기"
+    ],
+    "reportable": true
+   },
+   "note": "서술에 제품명 패턴이 없어 자동 감지가 실패하는 케이스 — suspected_drug 인자로 보완하는 경로 검증."
+  },
+  {
+   "id": "PV-020",
+   "case": "환자(30세 여성)가 해열제P정을 복용 후 발진이 생겼습니다.",
+   "expect": {
+    "serious": false,
+    "deadline_days": null,
+    "causality": "Possible",
+    "pts": [
+     "발진"
+    ],
+    "reportable": false,
+    "missing_n": 1
+   },
+   "note": "보고자(②)만 없는 케이스 — 빠진 요소를 정확히 1개로 짚어야 follow-up 질문이 유효하다."
+  },
+  {
+   "id": "PV-021",
+   "case": "환자가 진통제R정을 복용 후 손발이 저릿저릿하다고 호소했습니다. 의사가 보고했습니다.",
+   "expect": {
+    "serious": false,
+    "deadline_days": null,
+    "causality": "Possible",
+    "pts": [
+     "감각 이상"
+    ],
+    "candidate_pts": [],
+    "uncoded_detected": true,
+    "reportable": true
+   },
+   "note": "심층 롱테일 — 1·2계층 어느 사전에도 없는 표현('저릿저릿'). 3계층 미코딩 감지로 ④요건만 충족하고 PT 부여는 사람 몫. 확정·후보 재현율이 둘 다 정직하게 깎이는 문항(측정 하네스가 동어반복이 아니라는 증거)."
+  },
+  {
+   "id": "PV-022",
+   "case": "환자가 항생제S주사를 투여 후 귀에서 삐 소리가 나는 이명이 생겼다고 호소했습니다. 간호사가 보고했습니다.",
+   "expect": {
+    "serious": false,
+    "deadline_days": null,
+    "causality": "Possible",
+    "pts": [
+     "이명"
+    ],
+    "candidate_pts": [
+     "이명"
+    ],
+    "reportable": true
+   },
+   "note": "2계층 LLT 후보 경로 검증 — '이명'은 1계층 미수록이지만 LLT 참조로 후보 제시, ④요건 충족."
+  }
+ ]
+}

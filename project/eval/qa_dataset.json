@@ -1,0 +1,300 @@
+{
+  "_comment": "RAG 검색 평가용 QA셋. relevant_doc_id = 정답 근거 문서. keywords = 답변에 반드시 포함되어야 할 핵심어(faithfulness/ContextRecall 근사 채점). hard_negative=true 는 어휘가 겹치는 유사문서가 코퍼스에 존재해 벡터 단독으로는 틀리기 쉬운 문항(하이브리드·리랭킹의 효과가 드러나는 지점).",
+  "items": [
+    {
+      "question": "신약 품목허가 심사는 며칠 이내에 처리되나요?",
+      "relevant_doc_id": "REG-001",
+      "relevant_section_hint": "심사 기간",
+      "keywords": [
+        "120",
+        "근무일"
+      ]
+    },
+    {
+      "question": "제네릭 의약품 허가 처리기한은?",
+      "relevant_doc_id": "REG-001",
+      "relevant_section_hint": "심사 기간",
+      "keywords": [
+        "60",
+        "근무일"
+      ]
+    },
+    {
+      "question": "변경허가와 변경신고는 어떻게 구분되나요?",
+      "relevant_doc_id": "REG-002",
+      "relevant_section_hint": "변경 유형",
+      "keywords": [
+        "변경허가",
+        "변경신고"
+      ]
+    },
+    {
+      "question": "변경신고는 며칠 이내에 수리 통보되나요?",
+      "relevant_doc_id": "REG-002",
+      "relevant_section_hint": "처리기한",
+      "keywords": [
+        "7",
+        "근무일"
+      ]
+    },
+    {
+      "question": "GMP 데이터 완전성 ALCOA 원칙은 무엇인가요?",
+      "relevant_doc_id": "REG-003",
+      "relevant_section_hint": "데이터 완전성",
+      "keywords": [
+        "귀속성",
+        "원본"
+      ],
+      "hard_negative": true
+    },
+    {
+      "question": "공정 밸리데이션은 보통 몇 배치로 하나요?",
+      "relevant_doc_id": "REG-003",
+      "relevant_section_hint": "밸리데이션",
+      "keywords": [
+        "3배치"
+      ]
+    },
+    {
+      "question": "의약품 용기에 반드시 기재해야 하는 사항은?",
+      "relevant_doc_id": "REG-004",
+      "relevant_section_hint": "용기",
+      "keywords": [
+        "사용기한",
+        "제조번호"
+      ],
+      "hard_negative": true
+    },
+    {
+      "question": "중대한 이상사례는 며칠 이내에 보고해야 하나요?",
+      "relevant_doc_id": "REG-005",
+      "relevant_section_hint": "이상사례 보고",
+      "keywords": [
+        "15일"
+      ],
+      "hard_negative": true,
+      "note": "폐지 구판(REG-013)이 30일로 명시 → 버전 인지 필터로 구판을 제외해야 15일(현행)이 정답."
+    },
+    {
+      "question": "PSUR 정기 안전성 보고 주기는 어떻게 되나요?",
+      "relevant_doc_id": "REG-005",
+      "relevant_section_hint": "정기적 안전성 보고",
+      "keywords": [
+        "PSUR"
+      ]
+    },
+    {
+      "question": "임상시험계획 승인(IND)은 며칠 이내에 처리되나요?",
+      "relevant_doc_id": "REG-006",
+      "relevant_section_hint": "처리기한",
+      "keywords": [
+        "30",
+        "근무일"
+      ]
+    },
+    {
+      "question": "임상시험은 어떤 관리기준을 준수해야 하나요?",
+      "relevant_doc_id": "REG-006",
+      "relevant_section_hint": "GCP",
+      "keywords": [
+        "GCP"
+      ]
+    },
+    {
+      "question": "재심사 기간은 보통 몇 년인가요?",
+      "relevant_doc_id": "REG-005",
+      "accept_doc_ids": [
+        "REG-005",
+        "REG-001"
+      ],
+      "relevant_section_hint": "재심사",
+      "keywords": [
+        "6년"
+      ],
+      "note": "v9: 잠복 라벨 모호성 교정 — REG-001 §6 에도 '재심사(신약: 통상 6년)' 동일 답이 실재한다. 정답 집합 확장(문항·검색기 불변)."
+    },
+    {
+      "question": "약을 만드는 시설에서 서로 다른 제품이 섞이는 것을 막는 기본 원칙은?",
+      "relevant_doc_id": "REG-003",
+      "relevant_section_hint": "3대 원칙",
+      "keywords": [
+        "교차오염",
+        "혼동"
+      ]
+    },
+    {
+      "question": "부작용이 심각하게 나타났을 때 당국에 얼마나 빨리 알려야 하나요?",
+      "relevant_doc_id": "REG-005",
+      "relevant_section_hint": "이상사례 보고",
+      "keywords": [
+        "15일"
+      ],
+      "hard_negative": true
+    },
+    {
+      "question": "허가를 받은 뒤에도 안전성 자료를 계속 제출해야 하나요?",
+      "relevant_doc_id": "REG-005",
+      "relevant_section_hint": "정기적 안전성 보고",
+      "keywords": [
+        "PSUR"
+      ]
+    },
+    {
+      "question": "제품 설명서에 경고 문구는 어디에 표시하나요?",
+      "relevant_doc_id": "REG-004",
+      "relevant_section_hint": "첨부문서",
+      "keywords": [
+        "경고"
+      ]
+    },
+    {
+      "question": "의료기기 4등급 신개발 제품의 품목허가 심사는 며칠 이내인가요?",
+      "relevant_doc_id": "REG-007",
+      "relevant_section_hint": "심사 기간",
+      "keywords": [
+        "80",
+        "근무일"
+      ],
+      "hard_negative": true,
+      "note": "의약품 품목허가(REG-001, 120일)와 어휘가 크게 겹침 → 대상(의료기기) 구분 필요."
+    },
+    {
+      "question": "의료기기 임상시험은 어떤 관리기준을 따르나요?",
+      "relevant_doc_id": "REG-007",
+      "relevant_section_hint": "제출자료",
+      "keywords": [
+        "KGCP"
+      ],
+      "hard_negative": true,
+      "note": "의약품 GCP(REG-006)와 혼동 유발."
+    },
+    {
+      "question": "화장품 용기에 성분을 어떻게 표시해야 하나요?",
+      "relevant_doc_id": "REG-008",
+      "relevant_section_hint": "표시 사항",
+      "keywords": [
+        "전성분"
+      ],
+      "hard_negative": true,
+      "note": "의약품 표시기재(REG-004)와 어휘 중복."
+    },
+    {
+      "question": "화장품 광고에서 금지되는 표현은 무엇인가요?",
+      "relevant_doc_id": "REG-008",
+      "relevant_section_hint": "광고 준수사항",
+      "keywords": [
+        "오인",
+        "혼동"
+      ]
+    },
+    {
+      "question": "희귀의약품의 조건부 허가에서 시판 후 제출이 요구되는 자료는?",
+      "relevant_doc_id": "REG-009",
+      "relevant_section_hint": "조건부 허가",
+      "keywords": [
+        "확증임상"
+      ],
+      "hard_negative": true,
+      "note": "일반 품목허가(REG-001)와 '허가' 어휘 중복."
+    },
+    {
+      "question": "조건부 허가는 임상 몇 상 완료 전에 받을 수 있나요?",
+      "relevant_doc_id": "REG-009",
+      "relevant_section_hint": "조건부 허가",
+      "keywords": [
+        "3상"
+      ]
+    },
+    {
+      "question": "원료의약품 DMF의 비공개부에는 어떤 정보가 들어가나요?",
+      "relevant_doc_id": "REG-010",
+      "relevant_section_hint": "공개부·비공개부",
+      "keywords": [
+        "제조공정"
+      ],
+      "hard_negative": true,
+      "note": "완제 품질자료 CTD M3(REG-001)와 혼동 유발."
+    },
+    {
+      "question": "완제의약품 CTD M3 품질 모듈에 포함되는 자료는?",
+      "relevant_doc_id": "REG-001",
+      "relevant_section_hint": "제출자료",
+      "keywords": [
+        "안정성"
+      ],
+      "hard_negative": true
+    },
+    {
+      "question": "GMP 적합판정의 유효기간은 몇 년인가요?",
+      "relevant_doc_id": "REG-011",
+      "relevant_section_hint": "적합판정 유효기간",
+      "keywords": [
+        "3년"
+      ],
+      "hard_negative": true,
+      "note": "GMP 데이터 완전성 문서(REG-003)와 'GMP' 어휘 중복 → 실태조사 문서로 라우팅되어야 함."
+    },
+    {
+      "question": "GMP 정기 실태조사는 언제 실시하나요?",
+      "relevant_doc_id": "REG-011",
+      "relevant_section_hint": "조사 유형",
+      "keywords": [
+        "정기"
+      ],
+      "hard_negative": true
+    },
+    {
+      "question": "의약외품은 품목허가와 품목신고 중 무엇으로 시판하나요?",
+      "relevant_doc_id": "REG-012",
+      "relevant_section_hint": "허가 vs 신고",
+      "keywords": [
+        "신고"
+      ],
+      "hard_negative": true
+    },
+    {
+      "question": "해외 제조소 GMP 조사는 일정에 어떻게 반영해야 하나요?",
+      "relevant_doc_id": "REG-011",
+      "relevant_section_hint": "조사 유형",
+      "keywords": [
+        "리드타임"
+      ]
+    },
+    {
+      "question": "DMF 제조방법이나 규격을 바꾸면 어떤 절차가 필요한가요?",
+      "relevant_doc_id": "REG-010",
+      "relevant_section_hint": "변경관리",
+      "keywords": [
+        "변경등록"
+      ]
+    },
+    {
+      "question": "품목허가 신청 시 반려·보완이 자주 발생하는 사유는?",
+      "relevant_doc_id": "REG-001",
+      "relevant_section_hint": "반려·보완",
+      "keywords": [
+        "DMF"
+      ]
+    },
+    {
+      "question": "화장품 표시기재는 의약품 표시기재와 뭐가 다른가요?",
+      "relevant_doc_id": "REG-008",
+      "relevant_section_hint": "의약품 표시기재와의 차이",
+      "keywords": [
+        "구분"
+      ],
+      "hard_negative": true,
+      "note": "대조 섹션이 '정답'인 문항 — 대조 섹션 페널티의 질의 의도 게이트('다르') 검증용. 게이트가 없으면 이 문항이 깨진다."
+    },
+    {
+      "question": "시판 후 안전관리란 무엇을 하는 활동인가요?",
+      "relevant_doc_id": "REG-005",
+      "relevant_section_hint": "개요",
+      "keywords": [
+        "수집",
+        "평가"
+      ],
+      "note": "서두(개요) 섹션이 '정답'인 문항 — 서두 감쇠의 질의 의도 게이트('무엇') 검증용."
+    }
+  ]
+}

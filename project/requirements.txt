@@ -1,0 +1,12 @@
+# RAPV-Assistant 의존성 (Python 3.11+)
+# 기본 설치는 경량이다 — RAG 벡터 측은 TF-IDF(순수 파이썬) 폴백으로 동작한다.
+# 밀집임베딩(sentence-transformers, 기본 provider)은 requirements-ml.txt 선택 설치.
+fastapi==0.139.0
+uvicorn==0.50.2
+fastmcp==3.4.3
+httpx==0.28.1        # API → MCP 서버 헬스체크 ping (fastmcp 전이 의존성이지만 직접 사용이라 명시 고정)
+anthropic==0.121.0   # 선택: ANTHROPIC_API_KEY 설정 시 LLM 모드 활성화 (langchain-anthropic 이 >=0.120 요구)
+pydantic==2.13.4
+pydantic-ai-slim[anthropic,mcp]==2.13.0   # 선택: AGENT_BACKEND=pydantic_ai 백엔드
+langgraph==1.2.10        # 선택: AGENT_BACKEND=langgraph 백엔드 (상태 그래프 tool-use 루프)
+langchain-anthropic==1.5.4   # LangGraph 백엔드의 모델 바인딩(ChatAnthropic)

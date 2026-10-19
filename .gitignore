@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+
+# 로컬 메모 (루트 md, 커밋된 저장소 문서는 예외)
+/*.md
+!/README.md
+!/CLAUDE.md
+!/DEPLOY.md
