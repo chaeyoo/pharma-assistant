@@ -133,6 +133,9 @@ for e in d['spec']['template']['spec']['containers'][0].get('env',[]):
 GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-$(current_env "$API_SERVICE" GOOGLE_CLIENT_ID)}"
 ALLOWED_EMAILS="${ALLOWED_EMAILS:-$(current_env "$API_SERVICE" ALLOWED_EMAILS)}"
 ALLOWED_DOMAINS="${ALLOWED_DOMAINS:-$(current_env "$API_SERVICE" ALLOWED_DOMAINS)}"
+# LLM 모드 생성 모델 — 실사용자 운영 기본은 비용·속도 균형의 Sonnet. 바꾸려면 LLM_MODEL=... 로 재실행.
+LLM_MODEL="${LLM_MODEL:-$(current_env "$API_SERVICE" LLM_MODEL)}"
+LLM_MODEL="${LLM_MODEL:-claude-sonnet-5-5}"
 
 LOGIN_ON=0
 if [[ -n "$GOOGLE_CLIENT_ID" ]]; then
@@ -186,7 +189,10 @@ if [[ "$LOGIN_ON" == 1 ]]; then
   [[ -n "$ALLOWED_DOMAINS" ]] && ENV="$ENV##ALLOWED_DOMAINS=$ALLOWED_DOMAINS"
   SECRETS="$SECRETS,GOOGLE_CLIENT_SECRET=pa-google-client-secret:latest"
 fi
-[[ "$LLM_ON" == 1 ]] && SECRETS="$SECRETS,ANTHROPIC_API_KEY=pa-anthropic-api-key:latest"
+if [[ "$LLM_ON" == 1 ]]; then
+  SECRETS="$SECRETS,ANTHROPIC_API_KEY=pa-anthropic-api-key:latest"
+  ENV="$ENV##LLM_MODEL=$LLM_MODEL"
+fi
 
 say "API·챗 UI 배포: $API_SERVICE"
 gcloud run deploy "$API_SERVICE" --image "$IMAGE" --region "$REGION" --quiet \
@@ -204,7 +210,7 @@ echo "   챗 UI     : $API_URL"
 echo "   운영 계기판: $API_URL/dashboard"
 echo "   MCP 서버  : $MCP_URL/mcp"
 echo "   로그인    : $([[ $LOGIN_ON == 1 ]] && echo '켜짐 (Google)' || echo '꺼짐')"
-echo "   모드      : $([[ $LLM_ON == 1 ]] && echo 'LLM 모드' || echo '오프라인 모드')"
+echo "   모드      : $([[ $LLM_ON == 1 ]] && echo "LLM 모드 ($LLM_MODEL)" || echo '오프라인 모드')"
 if [[ "$LOGIN_ON" != 1 ]]; then
   echo
   echo " 다음 단계 — Google 로그인용 OAuth 클라이언트의 승인된 리디렉션 URI:"
