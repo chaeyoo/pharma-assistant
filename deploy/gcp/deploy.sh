@@ -105,6 +105,19 @@ rand() { python3 -c 'import secrets;print(secrets.token_urlsafe(48))'; }
 say "Secret Manager 비밀값 준비"
 secret_exists pa-mcp-auth-token  || put_secret pa-mcp-auth-token "$(rand)"
 secret_exists pa-session-secret  || put_secret pa-session-secret "$(rand)"
+# 붙여넣기 실수(예시 문구가 그대로 남음, 공백·한글 섞임)를 저장 전에 거른다 —
+# 이런 값은 배포는 되지만 로그인 때 토큰 교환이 UnicodeEncodeError 로 실패한다.
+check_ascii_token() {  # check_ascii_token NAME VALUE PREFIX
+  if ! printf '%s' "$2" | LC_ALL=C grep -qE '^[A-Za-z0-9._~+/=-]+$'; then
+    echo "$1 값에 영문·숫자 외 문자(한글·공백 등)가 있습니다. 콘솔에서 복사한 값을 그대로 넣어 주세요." >&2; exit 1
+  fi
+  if [[ -n "$3" && "$2" != "$3"* ]]; then
+    echo "$1 값이 '$3' 로 시작하지 않습니다. 올바른 값인지 확인해 주세요." >&2; exit 1
+  fi
+}
+[[ -n "${GOOGLE_CLIENT_ID:-}"     ]] && check_ascii_token GOOGLE_CLIENT_ID "$GOOGLE_CLIENT_ID" ""
+[[ -n "${GOOGLE_CLIENT_SECRET:-}" ]] && check_ascii_token GOOGLE_CLIENT_SECRET "$GOOGLE_CLIENT_SECRET" "GOCSPX-"
+[[ -n "${ANTHROPIC_API_KEY:-}"    ]] && check_ascii_token ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY" "sk-ant-"
 [[ -n "${GOOGLE_CLIENT_SECRET:-}" ]] && put_secret pa-google-client-secret "$GOOGLE_CLIENT_SECRET"
 [[ -n "${ANTHROPIC_API_KEY:-}"   ]] && put_secret pa-anthropic-api-key "$ANTHROPIC_API_KEY"
 

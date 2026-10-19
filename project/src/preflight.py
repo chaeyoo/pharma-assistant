@@ -204,6 +204,15 @@ def check_config() -> list[str]:
     if config.GOOGLE_CLIENT_ID:
         if not config.GOOGLE_CLIENT_SECRET:
             problems.append("GOOGLE_CLIENT_ID 는 있는데 GOOGLE_CLIENT_SECRET 이 비어 있다")
+        elif not config.GOOGLE_CLIENT_SECRET.isascii() or " " in config.GOOGLE_CLIENT_SECRET:
+            # 실측: 예시 문구가 그대로 저장돼 배포는 통과하고 로그인 때 토큰 교환이
+            # UnicodeEncodeError(Basic 인증 헤더는 latin-1)로 실패했다 — 기동 전에 잡는다.
+            problems.append(
+                "GOOGLE_CLIENT_SECRET 에 영문·숫자 외 문자(한글·공백 등)가 있다 — 붙여넣기"
+                " 실수로 보인다(콘솔의 'GOCSPX-…' 값을 그대로 넣을 것)"
+            )
+        if not config.GOOGLE_CLIENT_ID.isascii() or " " in config.GOOGLE_CLIENT_ID:
+            problems.append("GOOGLE_CLIENT_ID 에 영문·숫자 외 문자(한글·공백 등)가 있다")
         if len(config.SESSION_SECRET) < 32:
             problems.append(
                 "로그인이 켜졌는데 SESSION_SECRET 이 없거나 32자 미만이다 — 세션 쿠키"

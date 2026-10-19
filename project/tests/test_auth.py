@@ -165,3 +165,10 @@ def test_login_starts_on_canonical_host(login_on, monkeypatch):
         assert r.headers["location"] == "https://pharma-api-abc-uc.a.run.app/login?error=failed"
     with TestClient(app, base_url="https://pharma-api-abc-uc.a.run.app") as c:
         assert c.get("/login").status_code == 200   # 이미 공개 주소면 그대로
+
+
+def test_preflight_rejects_placeholder_secret(login_on, monkeypatch):
+    """실측 회귀: 예시 문구('여기에_보안비밀번호')가 그대로 저장돼 로그인 콜백이
+    UnicodeEncodeError 로 실패했다 — preflight 가 기동 전에 거부해야 한다."""
+    monkeypatch.setattr(config, "GOOGLE_CLIENT_SECRET", "여기에_보안비밀번호")
+    assert any("GOOGLE_CLIENT_SECRET" in p and "한글" in p for p in _config_problems())

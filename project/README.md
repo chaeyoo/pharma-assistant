@@ -116,7 +116,7 @@ export ANTHROPIC_API_KEY=sk-ant-...   # (선택) LLM 모드 — 없어도 오프
 챗 UI·`/chat` 에 Google 로그인과 사용자별 하루 질문 상한(`DAILY_CHAT_LIMIT`, 기본 30)이 적용된다.
 설정 방법은 `.env.example` 의 '사용자 로그인' 절. 비워 두면 로그인 없이 로컬에서 그대로 동작한다.
 
-품질 확인: `.venv/bin/python -m src.preflight`(배포 전 점검) · `-m pytest`(391케이스) ·
+품질 확인: `.venv/bin/python -m src.preflight`(배포 전 점검) · `-m pytest`(393케이스) ·
 `-m eval.evaluate / sweep / faithfulness / pv_eval / verify_eval / plan_eval / robustness_eval`
 (평가 7종, 95% CI 병기). 키 필요 수동 2종: `-m eval.judge_eval`(LLM judge 실측) ·
 `-m eval.generate_eval_items`(평가셋 후보 생성 — 리뷰 게이트). CI는 매 푸시마다
