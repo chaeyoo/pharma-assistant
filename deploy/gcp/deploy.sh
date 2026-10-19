@@ -43,7 +43,7 @@ RUNTIME_SA="$PROJECT_NUMBER-compute@developer.gserviceaccount.com"
 # ---------------------------------------------------------------- 1. API 켜기
 say "필요한 Google Cloud API 활성화 (처음 한 번은 1~2분 걸림)"
 gcloud services enable run.googleapis.com artifactregistry.googleapis.com \
-  cloudbuild.googleapis.com secretmanager.googleapis.com --quiet
+  cloudbuild.googleapis.com secretmanager.googleapis.com storage.googleapis.com --quiet
 
 # ---------------------------------------------------------------- 2. 이미지 저장소
 if ! gcloud artifacts repositories describe "$AR_REPO" --location "$REGION" >/dev/null 2>&1; then
@@ -63,6 +63,20 @@ gcloud artifacts repositories set-cleanup-policies "$AR_REPO" --location "$REGIO
   --policy "$POLICY" --no-dry-run --quiet >/dev/null
 rm -f "$POLICY"
 
+# 빌드 소스 업로드용 버킷 — Cloud Build 가 자동으로 만드는 <PROJECT>_cloudbuild 버킷은
+# 새 프로젝트에서 권한 전파 전이면 PERMISSION_DENIED 로 막히는 일이 잦아 직접 만든다.
+# 7일 지난 소스 압축본은 자동 삭제(무료 저장 한도 보호).
+BUILD_BUCKET="gs://$PROJECT_ID-build-src"
+if ! gcloud storage buckets describe "$BUILD_BUCKET" >/dev/null 2>&1; then
+  say "빌드 소스 버킷 생성: $BUILD_BUCKET"
+  gcloud storage buckets create "$BUILD_BUCKET" --location "$REGION" \
+    --uniform-bucket-level-access --quiet
+  LIFECYCLE="$(mktemp)"
+  echo '{"rule":[{"action":{"type":"Delete"},"condition":{"age":7}}]}' > "$LIFECYCLE"
+  gcloud storage buckets update "$BUILD_BUCKET" --lifecycle-file "$LIFECYCLE" --quiet >/dev/null
+  rm -f "$LIFECYCLE"
+fi
+
 # ---------------------------------------------------------------- 3. 권한
 # 최근 프로젝트는 Cloud Build 가 기본 Compute 서비스 계정으로 돈다 — 빌드·푸시 권한 부여.
 say "서비스 계정 권한 확인"
@@ -70,6 +84,8 @@ for ROLE in roles/cloudbuild.builds.builder roles/artifactregistry.writer roles/
   gcloud projects add-iam-policy-binding "$PROJECT_ID" --member "serviceAccount:$RUNTIME_SA" \
     --role "$ROLE" --condition=None --quiet >/dev/null
 done
+gcloud storage buckets add-iam-policy-binding "$BUILD_BUCKET" \
+  --member "serviceAccount:$RUNTIME_SA" --role roles/storage.objectAdmin --quiet >/dev/null
 
 # ---------------------------------------------------------------- 4. 비밀값
 secret_exists() { gcloud secrets describe "$1" >/dev/null 2>&1; }
@@ -121,7 +137,16 @@ fi
 
 # ---------------------------------------------------------------- 5. 빌드
 say "컨테이너 이미지 빌드 (Cloud Build, 3~5분): $IMAGE"
-gcloud builds submit "$ROOT/project" --tag "$IMAGE" --quiet
+# 방금 부여한 권한이 퍼지기 전이면 실패할 수 있어 1분 간격으로 최대 3번 시도한다.
+for TRY in 1 2 3; do
+  if gcloud builds submit "$ROOT/project" --tag "$IMAGE" --region "$REGION" \
+       --gcs-source-staging-dir "$BUILD_BUCKET/source" \
+       --default-buckets-behavior regional-user-owned-bucket --quiet; then
+    break
+  fi
+  [[ "$TRY" == 3 ]] && { echo "빌드 실패 — 위 에러를 확인하세요." >&2; exit 1; }
+  echo "권한 전파 대기 후 다시 시도합니다 ($TRY/3)…"; sleep 60
+done
 
 # ---------------------------------------------------------------- 6. MCP 서버
 # 도구 서버. 외부 MCP 클라이언트도 붙을 수 있게 공개 URL 이지만 Bearer 토큰이 필수이고,
