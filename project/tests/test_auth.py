@@ -152,3 +152,16 @@ def test_preflight_weak_session_secret(login_on, monkeypatch):
 
 def test_preflight_passes_with_full_login_config(login_on):
     assert not [p for p in _config_problems() if "GOOGLE" in p or "SESSION" in p or "REQUIRE_LOGIN" in p]
+
+
+def test_login_starts_on_canonical_host(login_on, monkeypatch):
+    """Cloud Run 의 두 번째 주소로 들어와도 콜백과 같은 호스트에서 로그인을 시작한다
+    (다른 호스트면 OAuth state 쿠키가 안 따라와 state 불일치로 실패하던 경로)."""
+    monkeypatch.setattr(config, "PUBLIC_BASE_URL", "https://pharma-api-abc-uc.a.run.app")
+    with TestClient(app, base_url="https://pharma-api-123.us-central1.run.app") as c:
+        r = c.get("/auth/google", follow_redirects=False)
+        assert r.headers["location"] == "https://pharma-api-abc-uc.a.run.app/auth/google"
+        r = c.get("/login?error=failed", follow_redirects=False)
+        assert r.headers["location"] == "https://pharma-api-abc-uc.a.run.app/login?error=failed"
+    with TestClient(app, base_url="https://pharma-api-abc-uc.a.run.app") as c:
+        assert c.get("/login").status_code == 200   # 이미 공개 주소면 그대로

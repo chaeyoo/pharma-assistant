@@ -32,7 +32,9 @@ UsageLimiter 는 인터페이스를 작게 두고(check_and_consume / remaining)
 from __future__ import annotations
 
 import datetime as _dt
+import logging
 import threading
+from urllib.parse import urlparse
 from dataclasses import dataclass, field
 from zoneinfo import ZoneInfo
 
@@ -43,6 +45,8 @@ from .. import config
 
 _KST = ZoneInfo("Asia/Seoul")
 _GOOGLE_METADATA = "https://accounts.google.com/.well-known/openid-configuration"
+
+log = logging.getLogger("rapv_assistant.auth")
 
 ANONYMOUS = {"sub": "anonymous", "email": "local", "name": "로컬 사용자", "anonymous": True}
 
@@ -177,6 +181,25 @@ def _redirect_uri(request: Request) -> str:
     return str(request.url_for("auth_callback"))
 
 
+def _canonical_redirect(request: Request, path: str) -> RedirectResponse | None:
+    """공개 주소(PUBLIC_BASE_URL)와 다른 호스트로 들어왔으면 공개 주소로 보낸다.
+
+    Cloud Run 은 한 서비스에 주소를 두 개 준다(<svc>-<번호>.<region>.run.app 과
+    <svc>-<해시>.a.run.app). 로그인을 A 주소에서 시작하고 Google 이 B 주소의 콜백으로
+    돌려보내면 OAuth state 를 담은 세션 쿠키가 따라오지 않아 state 불일치로 실패한다.
+    시작 전에 콜백과 같은 호스트로 맞춰 이 실패를 구조로 막는다.
+    """
+    if not config.PUBLIC_BASE_URL:
+        return None
+    base = urlparse(config.PUBLIC_BASE_URL)
+    if request.url.netloc != base.netloc:
+        target = config.PUBLIC_BASE_URL.rstrip("/") + path
+        if request.url.query:
+            target += "?" + request.url.query
+        return RedirectResponse(target)
+    return None
+
+
 router = APIRouter()
 
 
@@ -184,6 +207,8 @@ router = APIRouter()
 async def login_page(request: Request):
     if not auth_enabled() or request.session.get("user"):
         return RedirectResponse("/")
+    if (r := _canonical_redirect(request, "/login")) is not None:
+        return r
     html = (config.WEB_DIR / "login.html").read_text(encoding="utf-8")
     return HTMLResponse(html)
 
@@ -192,9 +217,12 @@ async def login_page(request: Request):
 async def auth_google(request: Request):
     if not auth_enabled():
         return RedirectResponse("/")
+    if (r := _canonical_redirect(request, "/auth/google")) is not None:
+        return r
     try:
         return await _google().authorize_redirect(request, _redirect_uri(request))
-    except Exception:  # noqa: BLE001 - Google 메타데이터 조회 실패(네트워크 등)는 500 대신 안내
+    except Exception as e:  # noqa: BLE001 - Google 메타데이터 조회 실패(네트워크 등)는 500 대신 안내
+        log.warning("oauth start failed: %s: %s", type(e).__name__, e)
         return RedirectResponse("/login?error=failed")
 
 
@@ -204,12 +232,18 @@ async def auth_callback(request: Request):
         return RedirectResponse("/")
     try:
         token = await _google().authorize_access_token(request)
-    except Exception:  # noqa: BLE001 - state 불일치·취소 등은 로그인 화면으로 되돌린다
+    except Exception as e:  # noqa: BLE001 - state 불일치·취소 등은 로그인 화면으로 되돌린다
+        # 원인(예: MismatchingStateError, invalid_client, redirect_uri_mismatch)을 남긴다 —
+        # 메시지에는 토큰·시크릿이 실리지 않는다.
+        log.warning("oauth callback failed: %s: %s | host=%s has_state_cookie=%s",
+                    type(e).__name__, e, request.url.netloc, bool(request.session))
         return RedirectResponse("/login?error=failed")
     info = token.get("userinfo") or {}
     email = (info.get("email") or "").lower()
     if not info.get("email_verified") or not is_allowed(email):
+        log.info("oauth login denied: email=%s verified=%s", email, info.get("email_verified"))
         return RedirectResponse("/login?error=denied")
+    log.info("oauth login ok: email=%s", email)
     request.session["user"] = {
         "sub": info.get("sub") or email,
         "email": email,
