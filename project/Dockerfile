@@ -28,4 +28,6 @@ EXPOSE 8000
 # MCP 서버 실연결(도구 6종 노출)까지 기다린다 — 실패하면 컨테이너가 뜨지 않는다.
 # 플랫폼이 주입하는 $PORT 로 0.0.0.0 바인딩(없으면 8000). 오프라인 모드가 기본,
 # LLM 모드는 ANTHROPIC_API_KEY 환경변수를 줄 때만 활성화된다.
-CMD ["sh", "-c", "python -m src.preflight --role api && exec uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
+# --proxy-headers: Cloud Run 같은 HTTPS 프록시 뒤에서 원래 scheme(https)을 인식해
+# OAuth 콜백 주소·Secure 쿠키가 올바르게 만들어지게 한다.
+CMD ["sh", "-c", "python -m src.preflight --role api && exec uvicorn src.api.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]

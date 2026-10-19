@@ -42,6 +42,24 @@ MCP_AUTH_TOKEN = os.environ.get("MCP_AUTH_TOKEN", "").strip()
 # 무인증 공개 상태로 조용히 돌아가지 않게 한다(fail-closed).
 MCP_REQUIRE_AUTH = os.environ.get("MCP_REQUIRE_AUTH", "").strip() in ("1", "true", "on")
 
+# 사용자 로그인(Google OIDC) — GOOGLE_CLIENT_ID 가 있을 때만 켜진다(src/api/auth.py).
+# 비어 있으면 익명으로 통과해 로컬 개발·테스트 동작이 바뀌지 않는다.
+GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "").strip()
+GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "").strip()
+# 세션 쿠키 서명 키 — 로그인을 켜면 필수(32자 이상, preflight 가 검사).
+SESSION_SECRET = os.environ.get("SESSION_SECRET", "").strip()
+# 쿠키 Secure 속성 — HTTPS 배포(기본)에서는 켠다. http://localhost 개발 시에만 0.
+SESSION_COOKIE_SECURE = os.environ.get("SESSION_COOKIE_SECURE", "1").strip() not in ("0", "false", "off")
+# 프록시(Cloud Run) 뒤 OAuth 콜백 주소를 고정할 공개 주소. 예: https://pharma-xxx.a.run.app
+PUBLIC_BASE_URL = os.environ.get("PUBLIC_BASE_URL", "").strip()
+# 허용 목록 — 둘 다 비면 Google 계정 누구나. 쉼표 구분.
+ALLOWED_EMAILS = {e.strip().lower() for e in os.environ.get("ALLOWED_EMAILS", "").split(",") if e.strip()}
+ALLOWED_DOMAINS = {d.strip().lower().lstrip("@") for d in os.environ.get("ALLOWED_DOMAINS", "").split(",") if d.strip()}
+# 사용자별 하루(KST) 질문 상한 — LLM 비용 보호. 0 이하면 무제한.
+DAILY_CHAT_LIMIT = int(os.environ.get("DAILY_CHAT_LIMIT", "30"))
+# 공개 배포 가드 — 켜면 로그인 설정 없이 기동하려 할 때 preflight 가 거부한다.
+REQUIRE_LOGIN = os.environ.get("REQUIRE_LOGIN", "").strip() in ("1", "true", "on")
+
 # LLM (Enterprise LLM API) 설정 — 있으면 사용, 없으면 오프라인 폴백
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
 LLM_MODEL = os.environ.get("LLM_MODEL", "claude-opus-4-8")

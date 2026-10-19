@@ -7,6 +7,8 @@ fastmcp==3.4.3
 httpx==0.28.1        # API → MCP 서버 헬스체크 ping (fastmcp 전이 의존성이지만 직접 사용이라 명시 고정)
 anthropic==0.121.0   # 선택: ANTHROPIC_API_KEY 설정 시 LLM 모드 활성화 (langchain-anthropic 이 >=0.120 요구)
 pydantic==2.13.4
+authlib==1.9.1        # Google 로그인(OIDC) 클라이언트 — GOOGLE_CLIENT_ID 설정 시 사용
+itsdangerous==2.2.0   # 서명된 세션 쿠키(Starlette SessionMiddleware)
 pydantic-ai-slim[anthropic,mcp]==2.13.0   # 선택: AGENT_BACKEND=pydantic_ai 백엔드
 langgraph==1.2.10        # 선택: AGENT_BACKEND=langgraph 백엔드 (상태 그래프 tool-use 루프)
 langchain-anthropic==1.5.4   # LangGraph 백엔드의 모델 바인딩(ChatAnthropic)

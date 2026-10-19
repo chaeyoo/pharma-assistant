@@ -193,6 +193,22 @@ def check_config() -> list[str]:
             "MCP_REQUIRE_AUTH=1 인데 MCP_AUTH_TOKEN 이 비어 있다 — 공개 MCP 서버를"
             " 무인증으로 열 수 없다(토큰을 설정하거나 공개 가드를 끌 것)"
         )
+    # 로그인 가드 — 공개 배포(REQUIRE_LOGIN=1)에서 로그인 설정이 빠지면 LLM 비용이
+    # 무인증으로 열린다. 로그인을 켰다면 클라이언트 시크릿·세션 서명 키가 필수다
+    # (서명 키가 없거나 짧으면 세션 위조 위험).
+    if config.REQUIRE_LOGIN and not config.GOOGLE_CLIENT_ID:
+        problems.append(
+            "REQUIRE_LOGIN=1 인데 GOOGLE_CLIENT_ID 가 비어 있다 — 공개 서비스를"
+            " 무인증으로 열 수 없다(Google OAuth 클라이언트를 설정할 것)"
+        )
+    if config.GOOGLE_CLIENT_ID:
+        if not config.GOOGLE_CLIENT_SECRET:
+            problems.append("GOOGLE_CLIENT_ID 는 있는데 GOOGLE_CLIENT_SECRET 이 비어 있다")
+        if len(config.SESSION_SECRET) < 32:
+            problems.append(
+                "로그인이 켜졌는데 SESSION_SECRET 이 없거나 32자 미만이다 — 세션 쿠키"
+                " 서명 키가 약하면 위조될 수 있다(예: python -c 'import secrets;print(secrets.token_urlsafe(48))')"
+            )
     if config.JUDGE_ENABLED and not config.ANTHROPIC_API_KEY:
         # LLM judge 를 켰는데 키가 없으면 모든 응답의 judge 가 unavailable 로
         # 도는 '고장난 안전장치' 배포가 된다 — 조용히 내려가는 대신 기동을

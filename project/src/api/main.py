@@ -8,6 +8,11 @@
   GET  /dashboard   → 운영 계기판 — /health 를 폴링해 경고율·축별 분해를 그리는 화면
   GET  /dictionary  → 용어 사전 플래시카드 (description/dictionary.html, self-contained)
   GET  /blank       → 예제문100 빈칸 퀴즈 (description/blank.html, self-contained)
+  GET  /login · /auth/google · /auth/callback · /logout · /api/me → Google 로그인(src/api/auth.py)
+
+인증: GOOGLE_CLIENT_ID 가 설정되면 챗 UI·/chat·/api/deadlines·/dashboard 는 로그인이
+필요하고, /chat 은 사용자별 하루 질문 상한(DAILY_CHAT_LIMIT)을 적용한다. /health 는
+플랫폼 헬스체크용으로 공개 유지(사용자 데이터 없음).
 
 설계 관점: 에이전트(백엔드)를 API로 서빙하고 프론트(챗 UI)와 연결하는
 전형적인 풀스택 구조. 실제 배포 시 인증·로깅·관측성을 이 계층에 추가한다.
@@ -15,10 +20,12 @@
 from __future__ import annotations
 
 import json
+import secrets
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi import Depends, FastAPI, Request
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel, Field
 
 import httpx
@@ -27,6 +34,7 @@ from .. import config
 from ..agent.agent import RaAgent
 from ..observability import flow, flow_reset, gate_stats
 from ..ra.tasks import load_ra_tasks
+from . import auth
 
 agent = RaAgent()
 
@@ -63,6 +71,18 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="RAPV-Assistant", lifespan=lifespan)
+# 서명된 세션 쿠키 — 로그인이 꺼져 있으면 쓰이지 않으므로 프로세스별 임시 키로 둔다
+# (로그인을 켜면 preflight 가 SESSION_SECRET 을 강제한다). same_site=lax 는 Google 에서
+# 콜백으로 돌아올 때 OAuth state 쿠키가 실려 오게 하는 최소 설정이다.
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=config.SESSION_SECRET or secrets.token_urlsafe(48),
+    session_cookie="pa_session",
+    same_site="lax",
+    https_only=config.SESSION_COOKIE_SECURE and bool(config.GOOGLE_CLIENT_ID),
+    max_age=60 * 60 * 24 * 7,
+)
+app.include_router(auth.router)
 
 
 class ChatRequest(BaseModel):
@@ -83,6 +103,8 @@ class ChatResponse(BaseModel):
     # 인터넷 검색 결과(origin="web") — 사내 출처(citations)와 별도 필드로 분리
     # (명시 요청 턴에만 채워진다 — 웹 결과가 규제문서 출처 카드에 섞이지 않는다)
     web_results: list[dict] = Field(default_factory=list)
+    # 오늘 남은 질문 수(로그인 꺼짐·무제한이면 None)
+    remaining_today: int | None = None
 
 
 @app.get("/health")
@@ -111,12 +133,14 @@ async def health() -> JSONResponse:
 
 
 @app.post("/chat", response_model=ChatResponse)
-async def chat(req: ChatRequest) -> ChatResponse:
+async def chat(req: ChatRequest, user: dict = Depends(auth.require_user)) -> ChatResponse:
+    remaining = auth.consume_chat_quota(user)
     flow_reset()
     flow(
         "chat()",
         "HTTP 진입점 — UI(web/index.html)의 POST /chat 수신. 원문은 아직 마스킹 전이라 길이만 기록",
         message_len=len(req.message), history_turns=len(req.history),
+        user=user.get("email"),
         next="agent.chat() 호출 — 모든 요청은 에이전트 단일 진입점(RaAgent)으로 위임",
     )
     result = await agent.chat(req.message, req.history)
@@ -140,22 +164,27 @@ async def chat(req: ChatRequest) -> ChatResponse:
         redactions=result.redactions,
         verification=result.verification,
         web_results=result.web_results,
+        remaining_today=remaining,
     )
 
 
 @app.get("/api/deadlines")
-async def deadlines() -> JSONResponse:
+async def deadlines(user: dict = Depends(auth.require_user)) -> JSONResponse:
     return JSONResponse(load_ra_tasks()["deadlines"])
 
 
 @app.get("/", response_class=HTMLResponse)
-async def index() -> HTMLResponse:
+async def index(request: Request):
+    if not auth.current_user(request):
+        return RedirectResponse("/login")
     html = (config.WEB_DIR / "index.html").read_text(encoding="utf-8")
     return HTMLResponse(html)
 
 
 @app.get("/dashboard", response_class=HTMLResponse)
-async def dashboard() -> HTMLResponse:
+async def dashboard(request: Request):
+    if not auth.current_user(request):
+        return RedirectResponse("/login")
     # /health 의 JSON 을 사람이 읽는 화면 — 폴링만 하는 정적 단일 파일(외부 의존 없음).
     # 지표의 정본은 여전히 /health 이고 이 페이지는 표현 계층일 뿐이다:
     # 새 축이 생겨도 서버가 by_axis 에 실어 보내면 라벨 없이 키 그대로 그려진다

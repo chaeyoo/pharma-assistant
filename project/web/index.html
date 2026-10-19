@@ -4,17 +4,17 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>RAPV-Assistant · 제약 규제업무(RA·PV) AI 어시스턴트</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 3h6v6h6v6h-6v6H9v-6H3V9h6z' fill='%23E4002B'/%3E%3Cpath d='M17 11h6v6h6v6h-6v6h-6v-6h-6v-6h6z' fill='%2343B02A'/%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cg transform='rotate(-45 16 16)'%3E%3Crect x='4' y='10' width='24' height='12' rx='6' fill='%23CBD5E1'/%3E%3Cpath d='M16 10h6a6 6 0 0 1 0 12h-6z' fill='%230F766E'/%3E%3C/g%3E%3C/svg%3E" />
 <style>
-  /* 브랜드 팔레트 — 제약·의료 톤의 딥블루/그린 */
+  /* 브랜드 팔레트 — 제약·의료 톤의 슬레이트/틸 */
   :root {
-    --brand-blue: #002B49;      /* Deep Blue */
-    --brand-mildblue: #0072CE;  /* Mild Blue */
-    --brand-green: #007A33;     /* Deep Green */
-    --brand-mildgreen: #43B02A; /* Mild Green */
-    --brand-bright: #97D700;    /* Bright Green */
-    --brand-red: #E4002B;       /* Red */
-    --brand-yellow: #FFC845;    /* Yellow */
+    --brand-blue: #1E293B;      /* Slate */
+    --brand-mildblue: #2563EB;  /* Blue */
+    --brand-green: #0F766E;     /* Teal */
+    --brand-mildgreen: #14B8A6; /* Mild Teal */
+    --brand-bright: #5EEAD4;    /* Bright Teal */
+    --brand-red: #DC2626;       /* Red */
+    --brand-yellow: #F59E0B;    /* Amber */
     --bg: #f4f7f9; --panel: #ffffff; --panel2: #eef3f6; --line: #dde5ec;
     --text: #1b2a38; --muted: #5b7186;
     --user: var(--brand-blue); --accent: var(--brand-green); --accent2: var(--brand-mildblue);
@@ -51,7 +51,7 @@
     line-height: 1.6; font-size: 21px; }
   .msg.user .bubble { background: var(--user); color: #fff; }
   .msg.bot .bubble { background: var(--panel); border: 1px solid var(--line);
-    box-shadow: 0 1.5px 4.5px rgba(0,43,73,.06); }
+    box-shadow: 0 1.5px 4.5px rgba(30,41,59,.06); }
   .meta { margin-top: 13.5px; display: flex; gap: 9px; flex-wrap: wrap; }
   .pill { font-size: 16.5px; padding: 3px 12px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); }
   .pill.ok { color: var(--brand-green); border-color: var(--brand-green); background: #eaf5ee; }
@@ -110,20 +110,28 @@
     .trace .tool { padding: 2px 8px; }
     .cites { margin-top: 9px; padding-top: 7px; }
   }
+  .user { display: inline-flex; align-items: center; gap: 10px; font-size: 14px; color: #cbd5e1; }
+  .user #userName { color: #fff; font-weight: 600; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .user #quota { font-variant-numeric: tabular-nums; }
+  .user a { color: #cbd5e1; text-decoration: underline; text-underline-offset: 3px; }
+  @media (max-width: 640px) { .user #userName { max-width: 120px; } .user #quota { display: none; } }
 </style>
 </head>
 <body>
   <header>
     <h1>
       <svg width="30" height="30" viewBox="0 0 32 32" aria-hidden="true">
-        <path d="M9 3h6v6h6v6h-6v6H9v-6H3V9h6z" fill="#E4002B"/>
-        <path d="M17 11h6v6h6v6h-6v6h-6v-6h-6v-6h6z" fill="#43B02A"/>
+        <g transform="rotate(-45 16 16)">
+          <rect x="4" y="10" width="24" height="12" rx="6" fill="#E2E8F0"/>
+          <path d="M16 10h6a6 6 0 0 1 0 12h-6z" fill="#14B8A6"/>
+        </g>
       </svg>
       RAPV-Assistant
     </h1>
     <span class="hspace"></span>
     <span id="mode" class="badge">연결 중…</span>
     <button id="reset" class="ghost" aria-label="대화 초기화">새 대화</button>
+    <span id="user" class="user" hidden><span id="userName"></span><span id="quota"></span><a href="/logout">로그아웃</a></span>
     <span class="info" tabindex="0" role="note" aria-label="서비스 정보">i<span class="tip">제약 규제업무(RA·PV) AI 어시스턴트 · RAG + MCP + Agent<span id="stats"></span></span></span>
   </header>
 
@@ -171,6 +179,24 @@ EXAMPLES.forEach(x => {
   c.onclick = () => { input.value = x.q; send(); };
   chips.appendChild(c);
 });
+
+// 로그인 상태 — 로그인이 꺼진 로컬 실행이면 사용자 칸을 숨긴 채 그대로 쓴다.
+function showQuota(remaining, limit) {
+  const q = document.getElementById('quota');
+  q.textContent = (remaining === null || remaining === undefined) ? '' : `오늘 ${remaining}${limit ? '/' + limit : ''}회 남음`;
+}
+let dailyLimit = null;
+fetch('/api/me').then(r => {
+  if (r.status === 401) { location.href = '/login'; return null; }
+  return r.json();
+}).then(me => {
+  if (!me || !me.auth_enabled) return;
+  dailyLimit = me.daily_limit;
+  document.getElementById('userName').textContent = me.name || me.email;
+  document.getElementById('userName').title = me.email;
+  showQuota(me.remaining, me.daily_limit);
+  document.getElementById('user').hidden = false;
+}).catch(() => {});
 
 fetch('/health').then(r => r.json()).then(h => {
   const b = document.getElementById('mode');
@@ -287,8 +313,16 @@ async function send() {
       method: 'POST', headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({ message, history })
     });
+    if (res.status === 401) { location.href = '/login'; return; }
+    if (res.status === 429) {
+      const err = await res.json().catch(() => ({}));
+      bubble.textContent = err.detail || '오늘 사용 가능한 질문 횟수를 모두 썼습니다.';
+      showQuota(0, dailyLimit);
+      return;
+    }
     if (!res.ok) throw new Error(`서버 오류 (HTTP ${res.status})`);
     const data = await res.json();
+    if (data.remaining_today !== null && data.remaining_today !== undefined) showQuota(data.remaining_today, dailyLimit);
     renderBot(bubble, data);
     // 이력 갱신(최근 6턴만 유지)
     history.push({ role: 'user', content: message });

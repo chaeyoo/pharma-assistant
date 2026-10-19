@@ -95,6 +95,7 @@ flowchart TB
 | **답변 사후 검증** | 전 응답 통과 런타임 게이트 + 게이트 자체의 메타모픽 평가(pytest 가드로 CI 강제) + opt-in LLM judge 2차 계층(수치 없는 의미 왜곡 — 결정론 경계 밖) | `src/verify/`, `eval/verify_eval.py`, `eval/judge_eval.py` |
 | **에이전트 평가 확장** | 계획 능력(도구 선택·인자, 결정론 라우터 1.0 핀)·입력 견고성(오타 섭동·구어·프롬프트 인젝션)·LLM 기반 평가셋 후보 생성(사람 리뷰 게이트 강제) | `eval/plan_eval.py`, `eval/robustness_eval.py`, `eval/generate_eval_items.py` |
 | **배포 전 점검(Day-0)** | 설정·코퍼스·업무데이터·스모크+안전장치 자가 테스트 — 실패 시 기동 차단 | `src/preflight.py` |
+| **사용자 인증·호출 제한** | Google 로그인(OIDC — 인증서버 없이 Google 을 IdP 로 사용, 사내 IdP 로 교체 가능)·허용 목록·사용자별 하루 질문 상한·서명 세션 쿠키, 공개 배포 가드(`REQUIRE_LOGIN`)를 preflight 가 강제 | `src/api/auth.py` |
 | **운영 계기판** | 검증 경고율(`warn_rate_checked`)·감사 로그를 `/health` 노출 | `src/observability.py` |
 | **실데이터 인제스트** | PDF→코퍼스 변환 경로(헤딩 휴리스틱+frontmatter, 상용 파서 교체 자리) | `scripts/ingest_pdf.py` |
 | **테스트/CI** | pytest 381케이스(불변식/fuzz 포함) + Actions(preflight+평가 6종 회귀) | `tests/`, 루트 `.github/workflows/ci.yml` |
@@ -111,7 +112,11 @@ export ANTHROPIC_API_KEY=sk-ant-...   # (선택) LLM 모드 — 없어도 오프
 .venv/bin/python scripts/download_embedding_model.py   # multilingual-e5-small 1회 다운로드
 ```
 
-품질 확인: `.venv/bin/python -m src.preflight`(배포 전 점검) · `-m pytest`(381케이스) ·
+로그인 켜기(선택 · 공개 배포 시 필수): `GOOGLE_CLIENT_ID`·`GOOGLE_CLIENT_SECRET`·`SESSION_SECRET` 를 설정하면
+챗 UI·`/chat` 에 Google 로그인과 사용자별 하루 질문 상한(`DAILY_CHAT_LIMIT`, 기본 30)이 적용된다.
+설정 방법은 `.env.example` 의 '사용자 로그인' 절. 비워 두면 로그인 없이 로컬에서 그대로 동작한다.
+
+품질 확인: `.venv/bin/python -m src.preflight`(배포 전 점검) · `-m pytest`(391케이스) ·
 `-m eval.evaluate / sweep / faithfulness / pv_eval / verify_eval / plan_eval / robustness_eval`
 (평가 7종, 95% CI 병기). 키 필요 수동 2종: `-m eval.judge_eval`(LLM judge 실측) ·
 `-m eval.generate_eval_items`(평가셋 후보 생성 — 리뷰 게이트). CI는 매 푸시마다

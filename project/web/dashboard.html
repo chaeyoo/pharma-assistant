@@ -4,12 +4,12 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>RAPV-Assistant · 운영 계기판</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cpath d='M9 3h6v6h6v6h-6v6H9v-6H3V9h6z' fill='%23E4002B'/%3E%3Cpath d='M17 11h6v6h6v6h-6v6h-6v-6h-6v-6h6z' fill='%2343B02A'/%3E%3C/svg%3E" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cg transform='rotate(-45 16 16)'%3E%3Crect x='4' y='10' width='24' height='12' rx='6' fill='%23CBD5E1'/%3E%3Cpath d='M16 10h6a6 6 0 0 1 0 12h-6z' fill='%230F766E'/%3E%3C/g%3E%3C/svg%3E" />
 <style>
   /* 챗 UI(index.html)와 동일한 브랜드 팔레트 — 같은 서비스로 읽히게 한다. */
   :root {
-    --brand-blue: #002B49; --brand-mildblue: #0072CE; --brand-green: #007A33;
-    --brand-mildgreen: #43B02A; --brand-bright: #97D700; --brand-red: #E4002B; --brand-yellow: #FFC845;
+    --brand-blue: #1E293B; --brand-mildblue: #2563EB; --brand-green: #0F766E;
+    --brand-mildgreen: #14B8A6; --brand-bright: #5EEAD4; --brand-red: #DC2626; --brand-yellow: #F59E0B;
     --bg: #f4f7f9; --panel: #ffffff; --panel2: #eef3f6; --line: #dde5ec;
     --text: #1b2a38; --muted: #5b7186;
   }
@@ -26,7 +26,7 @@
   .badge.llm { color: #12310a; background: var(--brand-bright); border-color: var(--brand-bright); font-weight: 700; }
   .badge.offline { color: var(--brand-yellow); border-color: var(--brand-yellow); }
   .badge.ok { color: var(--brand-bright); border-color: var(--brand-bright); }
-  .badge.bad { color: #ffc0cb; border-color: var(--brand-red); background: rgba(228,0,43,.25); }
+  .badge.bad { color: #ffc0cb; border-color: var(--brand-red); background: rgba(220,38,38,.25); }
   main { padding: 30px; max-width: 1180px; margin: 0 auto; }
   h2 { font-size: 19.5px; margin: 0 0 15px; font-weight: 650; }
   h2 .hint { font-weight: 400; font-size: 16.5px; color: var(--muted); margin-left: 9px; }
@@ -37,8 +37,8 @@
   .g4 { grid-template-columns: repeat(4, 1fr); }
   @media (max-width: 860px) { .g3, .g2, .g4 { grid-template-columns: 1fr; } }
   .card { background: var(--panel); border: 1px solid var(--line); border-radius: 13.5px;
-    padding: 21px 24px; box-shadow: 0 1.5px 4.5px rgba(0,43,73,.05); }
-  .card.hero { border-color: var(--brand-mildblue); box-shadow: 0 3px 12px rgba(0,114,206,.13); }
+    padding: 21px 24px; box-shadow: 0 1.5px 4.5px rgba(30,41,59,.05); }
+  .card.hero { border-color: var(--brand-mildblue); box-shadow: 0 3px 12px rgba(37,99,235,.13); }
   .label { font-size: 16.5px; color: var(--muted); }
   .value { font-size: 42px; font-weight: 700; line-height: 1.2; margin: 9px 0 3px;
     font-variant-numeric: tabular-nums; color: var(--brand-blue); }
