@@ -218,6 +218,15 @@ def check_config() -> list[str]:
                 "로그인이 켜졌는데 SESSION_SECRET 이 없거나 32자 미만이다 — 세션 쿠키"
                 " 서명 키가 약하면 위조될 수 있다(예: python -c 'import secrets;print(secrets.token_urlsafe(48))')"
             )
+    # 작업별 모델 설정(config/models.json) — 모델명이 코드가 아니라 설정에서 온다는
+    # 계약의 전제조건 검사. 비어 있으면 LLM 모드 첫 요청에서 '틀린 모델명' 실패로
+    # 드러나는 대신 기동 전에 잡는다(JUDGE 키 검사와 같은 fail-closed 계열).
+    for task in config.MODEL_TASKS:
+        if not config.model_for(task):
+            problems.append(
+                f"모델 설정 '{task}' 가 비어 있다 — {config.MODELS_FILE.relative_to(config.BASE_DIR)} 의"
+                f" '{task}' 키(또는 환경변수 {config._MODEL_ENV[task]})를 채울 것"
+            )
     if config.JUDGE_ENABLED and not config.ANTHROPIC_API_KEY:
         # LLM judge 를 켰는데 키가 없으면 모든 응답의 judge 가 unavailable 로
         # 도는 '고장난 안전장치' 배포가 된다 — 조용히 내려가는 대신 기동을

@@ -6,6 +6,7 @@
 """
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 
@@ -62,8 +63,39 @@ REQUIRE_LOGIN = os.environ.get("REQUIRE_LOGIN", "").strip() in ("1", "true", "on
 
 # LLM (Enterprise LLM API) 설정 — 있으면 사용, 없으면 오프라인 폴백
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-LLM_MODEL = os.environ.get("LLM_MODEL", "claude-opus-4-8")
 LLM_AVAILABLE = bool(ANTHROPIC_API_KEY)
+
+# 작업별 모델 설정 — 모델명은 코드가 아니라 config/models.json 에서 온다(환경변수가
+# 우선). 세 작업: answer(답변 생성 루프) · judge(LLM 2차 검증) · summary(요약·분류 등
+# 비용 민감 보조 작업). 값의 선정 근거는 eval/model_compare/REPORT.md 의 비교 실험이다.
+# 파일이 없거나 비면 빈 문자열이 되고 preflight(check_config)가 기동을 거부한다 —
+# 코드에 폴백 모델명을 두면 '설정에서 온다'는 계약이 조용히 깨진다.
+MODELS_FILE = BASE_DIR / "config" / "models.json"
+MODEL_TASKS = ("answer", "judge", "summary")
+_MODEL_ENV = {"answer": "LLM_MODEL", "judge": "JUDGE_MODEL", "summary": "SUMMARY_MODEL"}
+
+
+def _load_models_file(path: Path = MODELS_FILE) -> dict[str, str]:
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {k: str(data.get(k, "") or "").strip() for k in MODEL_TASKS}
+
+
+MODELS_FROM_FILE = _load_models_file()
+
+
+def model_for(task: str) -> str:
+    """작업(answer|judge|summary)에 쓸 모델명 — 환경변수 > config/models.json 순."""
+    env = os.environ.get(_MODEL_ENV.get(task, ""), "").strip()
+    return env or MODELS_FROM_FILE.get(task, "")
+
+
+LLM_MODEL = model_for("answer")
+SUMMARY_MODEL = model_for("summary")
 # 응답 생성 토큰 상한 — 1024 는 '사내 근거 구역 + 🌐 웹 구역' 2구역 답변이
 # 중간에 잘리는 값이었다(실배포에서 웹 구역이 통째로 잘려 분리 표시가 사라진
 # 실측). 잘림은 조용히 내보내지 않고 본문에 표시한다(agent 참고).
@@ -83,7 +115,7 @@ JUDGE_ENABLED = os.environ.get("LLM_JUDGE", "").strip() in ("1", "true", "on")
 # 판정 모델은 생성 모델(LLM_MODEL)과 분리한다 — (1) 전 응답 실행이라 저비용
 # 모델이 기본값이어야 하고, (2) 만든 모델과 비판하는 모델을 나누면 self-critique
 # 순환(같은 편향으로 같은 오류를 통과시키는 것)이 부분 완화된다.
-JUDGE_MODEL = os.environ.get("JUDGE_MODEL", "claude-haiku-4-5")
+JUDGE_MODEL = model_for("judge")
 
 # 인터넷 검색(search_web) — 사용자가 '명시적으로' 요청했을 때만 에이전트에 노출되는
 # 보조 도구다(명시와 분리 원칙 — 사내 문서에서 못 찾은 질문을 조용히 웹으로 대신

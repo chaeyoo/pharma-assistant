@@ -133,7 +133,9 @@ URL 뒤에 붙여 확인:
   플랫폼 대시보드에서 **rapv-assistant(web) 서비스에만** `ANTHROPIC_API_KEY`
   환경변수를 추가 → 재배포 → 시연 후 제거(MCP 서버는 키가 필요 없다).
 - 또는 **로컬**에서만 켠다: `project/.env` 에 `ANTHROPIC_API_KEY=sk-ant-...` 후 `./run.sh`.
-- 모델 기본값은 `claude-opus-4-8`(`LLM_MODEL` 로 변경 가능).
+- 모델 기본값은 코드가 아니라 `project/config/models.json`(작업별 answer/judge/summary)에서 오며,
+  환경변수 `LLM_MODEL`·`JUDGE_MODEL`·`SUMMARY_MODEL` 이 우선한다. 선정 근거는
+  `project/eval/model_compare/REPORT.md`(같은 정답셋으로 모델 3종 실측 비교).
 - 키 오류·네트워크 실패는 조용한 폴백 없이 **명시적 안내**로 처리되므로 안전하다.
 
 ---

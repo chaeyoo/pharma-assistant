@@ -153,6 +153,32 @@
       </div>
     </div>
   </section>
+  <!-- 5) 모델 선택 — 작업별 현재 모델(config/models.json)과 최근 비교 실험 집계.
+       숫자의 정본은 eval/model_compare/summary.json 이고 여기서는 읽어 그리기만 한다. -->
+  <section>
+    <h2>모델 선택 <span class="hint">작업별 현재 모델과 최근 비교 실험(eval/model_compare) 집계</span></h2>
+    <div class="grid g2">
+      <div class="card">
+        <table class="kv">
+          <tr><td>답변 생성 (answer)</td><td id="mAnswer">—</td></tr>
+          <tr><td>LLM 2차 검증 (judge)</td><td id="mJudge">—</td></tr>
+          <tr><td>요약·분류 (summary)</td><td id="mSummary">—</td></tr>
+        </table>
+      </div>
+      <div class="card">
+        <table class="kv">
+          <tr><td>최근 비교 실험</td><td id="mcWhen">—</td></tr>
+          <tr><td>심판 모델</td><td id="mcJudge">—</td></tr>
+          <tr><td>보고서</td><td><a id="mcLink" href="/model-compare/report">REPORT.md</a></td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="card" style="margin-top:14px">
+      <table class="kv" id="mcTable">
+        <tr><td colspan="7" class="empty" id="mcEmpty">비교 실험 결과 없음 — <code>python -m eval.model_compare.run</code></td></tr>
+      </table>
+    </div>
+  </section>
 </main>
 
 <footer>
@@ -236,12 +262,46 @@
       $('pChunk').textContent = `${p.chunk_size ?? '—'} / ${p.chunk_overlap ?? '—'}`;
       $('pTop').textContent = `${p.retrieve_top_k ?? '—'} / ${p.rerank_top_n ?? '—'}`;
 
+      // 모델 선택
+      const m = d.models || {};
+      $('mAnswer').innerHTML = `<code>${m.answer || '—'}</code>`;
+      $('mJudge').innerHTML = `<code>${m.judge || '—'}</code>`;
+      $('mSummary').innerHTML = `<code>${m.summary || '—'}</code>`;
+      const mc = d.model_compare || {};
+      $('mcWhen').textContent = mc.available ? (mc.generated_at || '—') : '없음';
+      $('mcJudge').innerHTML = mc.available ? `<code>${mc.judge_model || '—'}</code>` : '—';
+      renderCompare(mc);
+
       const t = new Date();
       $('tick').textContent = `갱신 ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
     } catch (e) {
       // 조회 실패를 '이상 없음'으로 위장하지 않는다(계기판이 틀리면 없는 것보다 나쁘다).
       $('tick').textContent = '갱신 실패 — ' + (e.message || e);
     }
+  }
+  // 비교 집계 표 — summary.json 의 rows 를 그대로 그린다. 결정론 열과 '(심판·참고)' 열을
+  // 구분해 라벨링한다(확률적 판정을 결정론 지표처럼 읽지 않도록).
+  const rate = r => (r && r.p != null) ? `${r.p.toFixed(3)} (${r.k}/${r.n})` : '—';
+  function renderCompare(mc) {
+    const tbl = $('mcTable');
+    if (!mc.available || !(mc.rows || []).length) {
+      tbl.innerHTML = '<tr><td colspan="7" class="empty">비교 실험 결과 없음 — <code>python -m eval.model_compare.run</code></td></tr>';
+      return;
+    }
+    const esc = s => String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+    let html = '<tr><td>층 · 모델</td><td>대표 지표(결정론)</td><td>검증기 통과 / 인자 정확</td><td>주장 전부 지지 (심판·참고)</td><td>실패율</td><td>p50 / p95 ms</td><td>비용 합계 USD</td></tr>';
+    for (const r of mc.rows) {
+      const gen = r.stage === 'generation';
+      const pr = r.primary || {};
+      html += `<tr><td>${esc(r.tier || r.stage)} · <code>${esc(r.model)}</code></td>`
+        + `<td>${esc(pr.label || '')} ${rate(pr)}</td>`
+        + `<td>${gen ? rate(r.verifier_ok) : rate(r.tool_param_ok)}</td>`
+        + `<td>${gen ? rate(r.faithfulness_all_supported) : '—'}</td>`
+        + `<td>${r.failure_rate ?? '—'}</td>`
+        + `<td>${r.latency_p50_ms ?? '—'} / ${r.latency_p95_ms ?? '—'}</td>`
+        + `<td>${r.cost_total_usd ?? '—'}</td></tr>`;
+    }
+    tbl.innerHTML = html;
   }
   refresh();
   setInterval(refresh, 5000);

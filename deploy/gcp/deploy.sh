@@ -133,9 +133,10 @@ for e in d['spec']['template']['spec']['containers'][0].get('env',[]):
 GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-$(current_env "$API_SERVICE" GOOGLE_CLIENT_ID)}"
 ALLOWED_EMAILS="${ALLOWED_EMAILS:-$(current_env "$API_SERVICE" ALLOWED_EMAILS)}"
 ALLOWED_DOMAINS="${ALLOWED_DOMAINS:-$(current_env "$API_SERVICE" ALLOWED_DOMAINS)}"
-# LLM 모드 생성 모델 — 실사용자 운영 기본은 비용·속도 균형의 Sonnet. 바꾸려면 LLM_MODEL=... 로 재실행.
+# LLM 모드 생성 모델 — 기본값은 코드가 아니라 project/config/models.json 의 answer 에서 온다
+# (선정 근거: project/eval/model_compare/REPORT.md). 바꾸려면 LLM_MODEL=... 로 재실행.
 LLM_MODEL="${LLM_MODEL:-$(current_env "$API_SERVICE" LLM_MODEL)}"
-LLM_MODEL="${LLM_MODEL:-claude-sonnet-5-5}"
+LLM_MODEL="${LLM_MODEL:-$(python3 -c "import json;print(json.load(open('$ROOT/project/config/models.json'))['answer'])")}"
 
 LOGIN_ON=0
 if [[ -n "$GOOGLE_CLIENT_ID" ]]; then

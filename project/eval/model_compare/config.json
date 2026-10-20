@@ -1,0 +1,67 @@
+{
+  "_comment": "모델 비교 실험 설정 — 모델 추가·삭제·심판 교체·실행 횟수·단가는 전부 이 파일에서 바꾼다(코드 불변). pricing 은 USD per 1M tokens 이며 pricing_source_url 의 공식 문서에서 pricing_checked_on 날짜에 확인한 값이다(추정 금지 — 단가가 없는 모델은 비용이 null 로 남는다).",
+  "models": [
+    "claude-haiku-4-5-20251001",
+    "claude-sonnet-5-5",
+    "claude-opus-5-5"
+  ],
+  "judge_model": "claude-sonnet-5",
+  "runs_per_question": 1,
+  "max_tokens": 4096,
+  "judge_max_tokens": 4096,
+  "context_top_n": 3,
+  "timeout_s": 120,
+  "max_retries": 0,
+  "datasets": {
+    "generation": "eval/qa_dataset.json",
+    "gold_answers": "eval/model_compare/gold_answers.json",
+    "complex": "eval/model_compare/complex_dataset.json",
+    "out_of_scope": "eval/abstention_dataset.json",
+    "adversarial": "eval/robustness_dataset.json",
+    "tool_selection": "eval/plan_dataset.json"
+  },
+  "pricing": {
+    "claude-haiku-4-5-20251001": {
+      "input": 1.0,
+      "output": 5.0,
+      "cache_write": 1.25,
+      "cache_read": 0.1,
+      "_row": "Claude Haiku 4.5"
+    },
+    "claude-sonnet-5-5": {
+      "input": 2.0,
+      "output": 10.0,
+      "cache_write": 2.5,
+      "cache_read": 0.1,
+      "_row": "Claude Sonnet 5.5"
+    },
+    "claude-opus-5-5": {
+      "input": 4.0,
+      "output": 20.0,
+      "cache_write": 5.0,
+      "cache_read": 0.2,
+      "_row": "Claude Opus 5.5"
+    },
+    "claude-sonnet-5": {
+      "input": 2.0,
+      "output": 10.0,
+      "cache_write": 2.5,
+      "cache_read": 0.2,
+      "_row": "Claude Sonnet 5"
+    }
+  },
+  "pricing_source_url": "https://platform.claude.com/docs/en/about-claude/pricing",
+  "pricing_checked_on": "2026-10-20",
+  "pricing_note": "cache_write 는 5분 캐시 기준. 이 실험은 cache_control 을 쓰지 않으므로 캐시 토큰은 0 이 정상이며 기록만 한다. 비교 3모델·심판 모두 프롬프트가 수천 토큰 이하라 장문 컨텍스트 가격 구간은 해당 없음.",
+  "tiers": [
+    "simple",
+    "complex",
+    "no_evidence",
+    "out_of_scope",
+    "adversarial"
+  ],
+  "_tiers_comment": "생성 단계 난이도 층. simple=QA 32(정답이 컨텍스트에 있음) · complex=복합 12(근거 2개 결합) · no_evidence=QA 32 의 정답 문서를 컨텍스트에서 뺀 변형(기대: 회피) · out_of_scope=범위 밖 8(기대: 회피) · adversarial=지시 주입·거짓 전제 5(marker 부재가 정상). 목록에서 빼면 그 층은 실행하지 않는다.",
+  "no_evidence_candidates": 12,
+  "_judge_max_tokens_comment": "1차 실행에서 1024 로는 주장이 많은 답변의 심판 JSON 이 잘려 schema_error 18건 — 4096 으로 올리고 그 건만 재판정(--rescore --rejudge-failed).",
+  "_max_tokens_comment": "운영 LLM_MAX_TOKENS 기본값(4096)과 동일. 1차 실행(2026-10-20, 1024)에서 복합 층 답변 9건이 절단돼 핵심어 누락으로 집계된 것을 확인하고 상향 후 전체 재실행 — 1차 결과는 archive/ 에 보관."
+}
