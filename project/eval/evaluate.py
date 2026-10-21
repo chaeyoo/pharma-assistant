@@ -133,7 +133,8 @@ def main() -> None:
     # 인덱스는 1회만 구축해 세 모드가 공유(공정 비교 + 빠른 실행)
     pipe = RagPipeline().build()
     # auto 는 환경 따라 dense/tfidf 로 갈리므로 이 수치가 '무엇의 수치'인지 명시
-    print(f"임베더: EMBEDDER_KIND={pipe.embedder_kind} → {type(pipe.retriever.store.embedder).__name__}")
+    print(f"임베더: EMBEDDER_KIND={pipe.embedder_kind} → {type(pipe.retriever.store.embedder).__name__}"
+          f" · 벡터 스토어: {type(pipe.retriever.store).__name__}(pool={pipe.retriever.vector_pool})")
     cols = [
         ("① 벡터만", "vector"),
         ("② 하이브리드", "hybrid"),

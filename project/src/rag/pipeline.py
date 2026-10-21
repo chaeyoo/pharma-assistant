@@ -1,6 +1,7 @@
 """RAG 파이프라인 오케스트레이터.
 
-로딩 → 청킹 → 임베딩/인덱싱 을 부팅 시 1회 수행하고,
+로딩 → 청킹 → 임베딩/인덱싱 을 부팅 시 1회 수행하고(pgvector 스토어면 바뀐 청크만
+증분 임베딩하고 나머지는 DB 에 저장된 벡터를 재사용한다),
 질의 시 검색(하이브리드+리랭킹) → 근거(context) 조립을 담당한다.
 생성(Generation)은 agent 계층에서 이 검색 결과를 받아 수행한다.
 """
@@ -15,7 +16,7 @@ from .chunker import Chunk, chunk_documents
 from .embedder import get_embedder
 from .loader import load_documents
 from .retriever import HybridRetriever
-from .vectorstore import InMemoryVectorStore, Scored
+from .vectorstore import Scored, get_vector_store
 
 
 @dataclass
@@ -52,10 +53,18 @@ class RetrievedContext:
 
 
 class RagPipeline:
-    def __init__(self, reg_dir: Path | None = None, embedder_kind: str | None = None) -> None:
+    def __init__(
+        self,
+        reg_dir: Path | None = None,
+        embedder_kind: str | None = None,
+        vector_store: str | None = None,
+    ) -> None:
         self.reg_dir = reg_dir or config.REG_DIR
         self.embedder_kind = embedder_kind or config.EMBEDDER_KIND
-        store = InMemoryVectorStore(get_embedder(self.embedder_kind))
+        self.vector_store_kind = vector_store or config.VECTOR_STORE
+        store = get_vector_store(
+            get_embedder(self.embedder_kind), self.vector_store_kind, self.embedder_kind
+        )
         self.retriever = HybridRetriever(
             store,
             alpha=config.HYBRID_ALPHA,

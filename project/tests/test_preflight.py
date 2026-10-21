@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from src import config, preflight
 
 
@@ -27,12 +29,12 @@ def test_preflight_role_group_composition():
     — api 롤의 'MCP 연결' 실행 자체는 conftest 가 띄운 실서버로 검증한다."""
     mcp_groups = set(preflight.run_preflight(role="mcp"))
     assert "MCP 연결" not in mcp_groups
-    assert {"코퍼스 무결성", "스모크(canary)"} <= mcp_groups
+    assert {"코퍼스 무결성", "벡터 스토어", "스모크(canary)"} <= mcp_groups
 
     api_report = preflight.run_preflight(role="api")
     assert "MCP 연결" in api_report
     assert not api_report["MCP 연결"], api_report["MCP 연결"]  # conftest 의 실서버에 실연결 성공
-    assert {"코퍼스 무결성", "스모크(canary)"}.isdisjoint(api_report)
+    assert {"코퍼스 무결성", "벡터 스토어", "스모크(canary)"}.isdisjoint(api_report)
 
 
 def _write_doc(dirpath: Path, name: str, meta: dict, body: str = "본문 내용") -> None:
@@ -293,6 +295,32 @@ def test_config_check_embedder_kind_values(monkeypatch):
     assert any("EMBEDDER_KIND" in p for p in preflight.check_config())
     monkeypatch.setattr(config, "EMBEDDER_KIND", "auto")
     assert not any("EMBEDDER_KIND" in p for p in preflight.check_config())
+
+
+def test_config_check_vector_store(monkeypatch):
+    """VECTOR_STORE 유효값 + pgvector 전제조건(URL·밀집 임베더·풀 범위)을 기동 전에 잡는다."""
+    monkeypatch.setattr(config, "VECTOR_STORE", "nope")
+    assert any("VECTOR_STORE" in p for p in preflight.check_config())
+    monkeypatch.setattr(config, "VECTOR_STORE", "pgvector")
+    monkeypatch.setattr(config, "PGVECTOR_URL", "")
+    monkeypatch.setattr(config, "EMBEDDER_KIND", "tfidf")
+    problems = preflight.check_config()
+    assert any("PGVECTOR_URL" in p for p in problems)
+    assert any("희소" in p for p in problems)
+    monkeypatch.setattr(config, "PGVECTOR_POOL", -1)
+    assert any("PGVECTOR_POOL" in p for p in preflight.check_config())
+    monkeypatch.setattr(config, "VECTOR_STORE", "memory")
+    monkeypatch.setattr(config, "PGVECTOR_POOL", 0)
+    assert not any("VECTOR_STORE" in p or "PGVECTOR" in p for p in preflight.check_config())
+
+
+def test_vector_store_check_reports_unreachable_db(monkeypatch):
+    pytest.importorskip("psycopg")
+    assert preflight.check_vector_store() == []  # memory(기본)는 점검 대상 없음
+    monkeypatch.setattr(config, "VECTOR_STORE", "pgvector")
+    monkeypatch.setattr(config, "PGVECTOR_URL", "postgresql://x:y@127.0.0.1:1/none")
+    problems = preflight.check_vector_store()
+    assert problems and "접속 실패" in problems[0]
 
 
 def test_config_check_agent_backend_values(monkeypatch):

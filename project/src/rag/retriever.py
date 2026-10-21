@@ -11,26 +11,16 @@
 """
 from __future__ import annotations
 
-import datetime as _dt
 import math
 import re
 from collections import Counter
 
+from .. import config
 from .chunker import Chunk
-from .embedder import cosine
 from .synonyms import expand_query
 from .textutil import tokenize
-from .vectorstore import InMemoryVectorStore, Scored
-
-
-def _parse_date(s: str) -> _dt.date | None:
-    """ISO 날짜 파싱 — 실패·공백은 None. 호출부가 fail-closed 로 처리한다."""
-    if not s:
-        return None
-    try:
-        return _dt.date.fromisoformat(s)
-    except ValueError:
-        return None
+from .vectorstore import Scored, VectorStore
+from .versionfilter import resolve_cutoff
 
 
 class BM25Index:
@@ -116,8 +106,9 @@ class HybridRetriever:
 
     def __init__(
         self,
-        store: InMemoryVectorStore,
+        store: VectorStore,
         alpha: float = 0.5,
+        vector_pool: int | None = None,
         rerank_weight: float = 0.9,
         idf_power: float = 0.5,
         contrast_penalty: float = 0.3,
@@ -125,6 +116,10 @@ class HybridRetriever:
     ) -> None:
         self.store = store
         self.alpha = alpha              # 벡터 가중(1-alpha 는 BM25 가중)
+        # 벡터 후보 풀 크기(0=전수). 스토어가 DB(pgvector)면 유사도 상위 pool 개만 받아
+        # 오고, 풀 밖 후보는 '풀 최솟값' 바닥으로 채운다 — 전수 min-max 와의 차이가
+        # 이 설계의 유일한 근사점이다(인메모리 스토어는 limit 을 무시하고 항상 전수).
+        self.vector_pool = config.PGVECTOR_POOL if vector_pool is None else vector_pool
         self.rerank_weight = rerank_weight  # 리랭커 신호 vs 1차 점수 prior 결합 비율
         self.idf_power = idf_power      # 리랭커 토큰 가중 = idf^p (0=균등, 1=IDF 그대로)
         # 섹션 타입 prior (질의 의도 게이트, 0이면 비활성 — sweep ablation 용)
@@ -137,8 +132,6 @@ class HybridRetriever:
         self._title_w: list[dict[str, float]] = []   # 제목 토큰별 가중(질의 무관 → 사전 계산)
         self._title_total: list[float] = []
         self._chunk_ix: dict[int, int] = {}
-        self._chunk_eff: list[_dt.date | None] = []      # 청크별 파싱된 시행일
-        self._doc_eff: dict[str, _dt.date | None] = {}   # doc_id → 시행일(as_of 구간 판정)
         self._max_idf = 1.0
 
     def index(self, chunks: list[Chunk]) -> None:
@@ -156,12 +149,9 @@ class HybridRetriever:
         ]
         self._title_total = [sum(w.values()) for w in self._title_w]
         self._chunk_ix = {id(c): i for i, c in enumerate(chunks)}
-        # 시행일은 인덱싱 시 1회 파싱해 둔다(질의마다 청크 수만큼 재파싱하지 않는다
-        # — 리랭커 캐시와 같은 이유). 해석 불가능한 날짜는 None 으로 보존해
-        # 시점(as_of) 조회에서 fail-closed 로 처리한다. doc 단위 맵은 폐지본의
-        # '당시 현행' 구간 [시행일, 후속본 시행일) 판정에서 후속본 조회용.
-        self._chunk_eff = [_parse_date(c.effective_date) for c in chunks]
-        self._doc_eff = {c.doc_id: _parse_date(c.effective_date) for c in chunks}
+        # 시행일 파싱·버전 필터 상태는 스토어의 version_filter 가 인덱싱 시 1회 만든다
+        # (versionfilter.py) — pgvector 스토어는 같은 규칙을 SQL 로도 적용하므로
+        # 규칙의 파이썬 구현을 스토어와 공유해 두 경로가 갈라지지 않게 한다.
 
     def _candidate_indices(self, as_of: str, include_superseded: bool) -> list[int]:
         """버전 인지 필터를 통과한 청크 인덱스만 반환(세 검색 모드 공통 후보군).
@@ -203,30 +193,28 @@ class HybridRetriever:
         as_of 형식 오류는 여기서 즉시 ValueError 다 — 사용자 경로는 MCP 도구
         경계(search_regulations)가 검증해 명시적 에러로 답하고, 직접 호출자
         (eval·테스트)의 형식 오류는 조용히 무시하는 것보다 시끄럽게 깨지는 것이 옳다.
+
+        판정 로직 자체는 versionfilter.VersionFilter.candidates() 에 있다(스토어와 공유).
         """
-        cutoff = _dt.date.fromisoformat(as_of) if as_of else _dt.date.today()
-        out: list[int] = []
-        for i, c in enumerate(self.store.chunks):
-            eff = self._chunk_eff[i]
-            if eff is None or eff > cutoff:
-                continue  # 시행일 미상(fail-closed) 또는 그 시점에 시행 전
-            if c.status == "superseded" and not include_superseded:
-                succ = self._doc_eff.get(c.superseded_by)
-                if succ is None or succ <= cutoff:
-                    continue  # 후속본 시행일 미상이거나 이미 대체된 시점
-            out.append(i)
-        return out
+        return self.store.version_filter.candidates(resolve_cutoff(as_of), include_superseded)
+
+    def _vector_scores(
+        self, qv, idxs: list[int], as_of: str, include_superseded: bool
+    ) -> list[float]:
+        """후보 idxs 각각의 벡터 유사도(idxs 순서). 스토어가 풀(limit)만 돌려주면 풀 밖
+        후보는 풀 최솟값으로 채운다 — 풀 밖은 그 값 이하임이 보장되므로 순위는 보존되고,
+        min-max 의 분모만 전수 대비 좁아진다."""
+        sims = self.store.search(qv, resolve_cutoff(as_of), include_superseded, self.vector_pool)
+        floor = min(sims.values(), default=0.0)
+        return [sims.get(i, floor) for i in idxs]
 
     # ---- 벡터 단독 검색(버전 필터 공유; eval 비교·폴백용) ----
     def vector_search(
         self, query: str, top_k: int, as_of: str = "", include_superseded: bool = False
     ) -> list[Scored]:
         qv = self.store.embedder.embed(query)
-        idxs = self._candidate_indices(as_of, include_superseded)
-        scored = [
-            Scored(chunk=self.store.chunks[i], score=cosine(qv, self.store.vectors[i]))
-            for i in idxs
-        ]
+        sims = self.store.search(qv, resolve_cutoff(as_of), include_superseded, top_k)
+        scored = [Scored(chunk=self.store.chunks[i], score=s) for i, s in sims.items()]
         scored.sort(key=lambda s: s.score, reverse=True)
         return scored[:top_k]
 
@@ -242,7 +230,7 @@ class HybridRetriever:
         bm_scores_all = self.bm25.scores(query)
         idxs = self._candidate_indices(as_of, include_superseded)
         # 정규화는 '후보군 안에서' 수행해야 스케일이 왜곡되지 않는다.
-        vec_scores = [cosine(qv, self.store.vectors[i]) for i in idxs]
+        vec_scores = self._vector_scores(qv, idxs, as_of, include_superseded)
         bm_scores = [bm_scores_all[i] for i in idxs]
         # 무신호 계약(v9): 전 후보의 벡터·BM25 '원점수'가 모두 무신호면 빈 결과.
         # 안정 정렬은 전부 0점인 후보를 코퍼스 첫 문서 순서 그대로 내보내

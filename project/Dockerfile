@@ -2,7 +2,8 @@
 # 컨테이너 호스트(Railway·Fly.io·Render(Docker)·Cloud Run 등) 어디에나 올라간다.
 # 기본 이미지는 밀집임베딩(ml) 없이 빌드한다 — EMBEDDER_KIND=auto 가 TF-IDF 로
 # 폴백하므로 이미지가 가볍고 콜드스타트가 빠르다. 밀집임베딩을 컨테이너에서 쓰려면
-# 아래 requirements-ml 설치 + 모델 다운로드 두 줄을 활성화한다(이미지 수백 MB 증가).
+# --build-arg WITH_ML=1 로 빌드한다(CPU torch + sentence-transformers + 모델을 이미지에
+# 굽는다 — 이미지 수백 MB 증가). docker-compose.pgvector.yml 오버레이가 이 인자를 켠다.
 FROM python:3.11-slim
 
 WORKDIR /app
@@ -14,9 +15,13 @@ RUN pip install --no-cache-dir -r requirements.txt
 # 앱 소스 복사
 COPY . .
 
-# 밀집임베딩 이미지로 빌드하려면 주석 해제(모델까지 이미지에 굽는다):
-# RUN pip install --no-cache-dir -r requirements-ml.txt \
-#  && python scripts/download_embedding_model.py
+# 밀집임베딩 이미지(선택): CPU 전용 torch 를 먼저 깔아 CUDA 휠(수 GB)이 딸려오는 것을 막는다.
+ARG WITH_ML=0
+RUN if [ "$WITH_ML" = "1" ]; then \
+      pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu \
+   && pip install --no-cache-dir -r requirements-ml.txt \
+   && python scripts/download_embedding_model.py ; \
+    fi
 
 ENV PYTHONUNBUFFERED=1
 

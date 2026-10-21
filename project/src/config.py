@@ -115,6 +115,14 @@ RERANK_PREAMBLE_PENALTY = float(os.environ.get("RERANK_PREAMBLE_PENALTY", "0.055
 # dense 는 명시 요구라 폴백 없이 실패한다(명시 설정은 시끄럽게 실패 — voyage 와 동일 원칙).
 EMBEDDER_KIND = os.environ.get("EMBEDDER_KIND", "auto")      # auto | dense | tfidf | hashing | voyage
 EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "intfloat/multilingual-e5-small")
+# 벡터 스토어: memory(기본, 부팅마다 전체 임베딩) | pgvector(Postgres 영속 — 증분 색인 +
+# DB 측 유사도 검색). pgvector 는 밀집 임베더(dense/voyage, auto→dense)가 전제다.
+VECTOR_STORE = os.environ.get("VECTOR_STORE", "memory")          # memory | pgvector
+PGVECTOR_URL = os.environ.get("PGVECTOR_URL", "").strip()        # postgresql://user:pw@host:5432/db
+# pgvector 벡터 후보 풀(유사도 상위 n 개만 DB 에서 받아 BM25 와 결합). 0 = 전수(인메모리와
+# 동일 결과). 양수면 HNSW 인덱스로 코퍼스 크기와 무관한 질의 비용 — 풀 밖 후보의 벡터
+# 점수는 '풀 최솟값' 바닥으로 채워 min-max 분모가 좁아지는 것이 유일한 근사점.
+PGVECTOR_POOL = int(os.environ.get("PGVECTOR_POOL", "0"))
 # dense 무신호 바닥값 — 밀집 코사인은 무관 질의에도 0 이 안 나오므로, 이 값 이하를
 # '벡터 신호 없음'으로 판정한다(무신호 계약 일반화, retriever._hybrid 참고).
 # 0.835 근거(e5-small, 후보군 내 max-cosine 실측): 개발셋 실질의 32건 min=0.846,

@@ -12,6 +12,21 @@ jobs:
     defaults:
       run:
         working-directory: project
+    services:
+      # pgvector 스토어 테스트(tests/test_vectorstore.py)용 — PGVECTOR_TEST_URL 이 없으면 skip 되므로
+      # 서비스를 둬서 CI 에서는 실 DB 로 증분 색인·SQL 버전 필터 동치를 검증한다.
+      pgvector:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: rapv
+          POSTGRES_PASSWORD: rapv
+          POSTGRES_DB: rapv
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U rapv -d rapv"
+          --health-interval 5s --health-timeout 3s --health-retries 10
+    env:
+      PGVECTOR_TEST_URL: postgresql://rapv:rapv@127.0.0.1:5432/rapv
     steps:
       - uses: actions/checkout@v4
 
