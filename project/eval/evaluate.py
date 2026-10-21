@@ -123,6 +123,14 @@ def evaluate(
 
 
 def main() -> None:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="RAG 검색 품질 평가")
+    parser.add_argument(
+        "--skip-provider-compare", action="store_true",
+        help="말미의 임베딩 provider 비교표(tfidf/hashing/dense 재구축)를 생략 — 운영 파이프라인 수치만 본다",
+    )
+    args = parser.parse_args()
     # 리랭킹 효과를 순위에 민감하게 보려고 최종 1건(rerank_n=1)으로 평가
     top_k, rerank_n = config.RETRIEVE_TOP_K, 1
     qa_n = len(_load_qa())
@@ -133,7 +141,8 @@ def main() -> None:
     # 인덱스는 1회만 구축해 세 모드가 공유(공정 비교 + 빠른 실행)
     pipe = RagPipeline().build()
     # auto 는 환경 따라 dense/tfidf 로 갈리므로 이 수치가 '무엇의 수치'인지 명시
-    print(f"임베더: EMBEDDER_KIND={pipe.embedder_kind} → {type(pipe.retriever.store.embedder).__name__}")
+    print(f"임베더: EMBEDDER_KIND={pipe.embedder_kind} → {type(pipe.retriever.store.embedder).__name__}"
+          f" · 벡터 스토어: {type(pipe.retriever.store).__name__}(pool={pipe.retriever.vector_pool})")
     cols = [
         ("① 벡터만", "vector"),
         ("② 하이브리드", "hybrid"),
@@ -192,6 +201,8 @@ def main() -> None:
     print("      1.000 이어도 n=6 의 CI 하한이 말하듯 '일반화 보장'이 아니다.)")
 
     # --- 임베딩 provider 비교(pluggable 실증) ---
+    if args.skip_provider_compare:
+        return
     print()
     print("=" * 62)
     print("임베딩 provider 비교 (동일 하이브리드+리랭킹 파이프라인)")

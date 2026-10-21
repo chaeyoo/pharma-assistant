@@ -13,6 +13,10 @@
   넣지 않는다. LLM 모드는 라이브 시연처럼 통제된 상황에서만 임시로 켠다(§4).
 - 이 앱은 **오래 사는 서버**다(MCP 서버 부팅 시 1회 RAG 인덱싱 + 인메모리 계기판).
   그래서 서버리스(Vercel)보다 **영속 프로세스/컨테이너 호스트(Render·Railway·Fly)** 가 맞다.
+  RAG 인덱스는 기본 인메모리이고, 선택으로 Postgres(pgvector)에 영속화할 수 있다
+  (`VECTOR_STORE=pgvector` + `PGVECTOR_URL`, mcp 서비스에만 — 밀집임베딩 이미지 `WITH_ML=1` 전제).
+  로컬 확인은 `docker-compose.pgvector.yml` 오버레이, 호스트에서는 관리형 Postgres 에 `vector` 확장을 켠다
+  (Render Postgres·Supabase·Neon·Cloud SQL 모두 지원).
 - 리포에 배포 파일이 들어 있다: `render.yaml`(레포 루트, 2-서비스 Blueprint),
   `docker-compose.yml`(레포 루트), `project/Dockerfile`, `project/.dockerignore`.
 - 자작 규제 코퍼스라 실 PII·비밀이 없어 공개 배포는 안전하다.

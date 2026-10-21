@@ -261,6 +261,35 @@ def check_config() -> list[str]:
                 "pip install -r requirements-ml.txt 후 "
                 "python scripts/download_embedding_model.py 로 모델을 받아둘 것"
             )
+    if config.VECTOR_STORE not in ("memory", "pgvector"):
+        problems.append(f"VECTOR_STORE('{config.VECTOR_STORE}')는 memory|pgvector 중 하나여야 한다")
+    if config.VECTOR_STORE == "pgvector":
+        # pgvector 는 고정 차원 vector 컬럼 → 밀집 임베더가 전제. 희소 임베더 명시 조합은
+        # 모순이고, auto 는 모델 미캐시면 tfidf 로 폴백해 스토어도 인메모리로 주저앉으므로
+        # (조용한 다운그레이드) dense 와 같은 '로컬 캐시에서 로드 가능' 전제를 요구한다.
+        if not config.PGVECTOR_URL:
+            problems.append("VECTOR_STORE=pgvector 인데 PGVECTOR_URL 이 없다")
+        if config.EMBEDDER_KIND in ("tfidf", "hashing"):
+            problems.append(
+                f"VECTOR_STORE=pgvector 는 밀집 임베더 전용인데 EMBEDDER_KIND={config.EMBEDDER_KIND}(희소)"
+            )
+        elif config.EMBEDDER_KIND == "auto":
+            try:
+                from .rag.embedder import _load_st_model
+
+                _load_st_model(config.EMBEDDING_MODEL, True)
+            except Exception as e:
+                problems.append(
+                    f"VECTOR_STORE=pgvector 인데 EMBEDDER_KIND=auto 가 밀집임베딩을 못 잡는다"
+                    f"({type(e).__name__}) — TF-IDF 폴백은 pgvector 에 담을 수 없다. "
+                    "pip install -r requirements-ml.txt 후 python scripts/download_embedding_model.py"
+                )
+        try:
+            import psycopg  # noqa: F401
+        except ImportError:
+            problems.append("VECTOR_STORE=pgvector 인데 psycopg 미설치 — pip install -r requirements.txt 재실행")
+    if config.PGVECTOR_POOL < 0:
+        problems.append(f"PGVECTOR_POOL({config.PGVECTOR_POOL})은 0(전수) 이상이어야 한다")
     if not (0.0 <= config.DENSE_SIGNAL_FLOOR < 1.0):
         problems.append(f"DENSE_SIGNAL_FLOOR({config.DENSE_SIGNAL_FLOOR})는 [0,1) 범위여야 한다")
     if config.AGENT_BACKEND not in ("direct", "pydantic_ai", "langgraph"):
@@ -442,6 +471,18 @@ def smoke_checks() -> list[str]:
 
     problems: list[str] = []
 
+    # 인덱스 구축 자체의 실패(모델 미캐시·벡터 스토어 접속/조합 오류 등)는 트레이스백으로
+    # 죽이지 않고 문제 1건으로 보고한다 — 원인은 보통 '설정 불변식' 그룹이 함께 짚어 준다.
+    try:
+        from .mcp_server.server import _get_pipeline
+
+        _get_pipeline()
+    except Exception as e:
+        problems.append(
+            f"RAG 인덱스 구축 실패({type(e).__name__}: {e}) — canary 를 돌릴 수 없다"
+        )
+        return problems
+
     # (a) RAG canary: 핵심 규정 질의가 정답 문서를 1위로 회수하는가
     res = search_regulations(_CANARY_QUERY, top_n=1).get("results", [])
     if not res:
@@ -591,6 +632,30 @@ def smoke_checks() -> list[str]:
     return problems
 
 
+def check_vector_store() -> list[str]:
+    """벡터 스토어 실연결 — pgvector 면 DB 접속·vector 확장·테이블 접근을 기동 전에 확인.
+
+    런타임의 PgVectorStore 는 접속 실패를 전파한다(명시 설정은 시끄럽게 실패). 그 실패를
+    컨테이너가 뜬 뒤 첫 색인에서 맞는 대신 여기서 원인과 함께 보고한다. memory 면 빈 목록.
+    """
+    problems: list[str] = []
+    if config.VECTOR_STORE != "pgvector" or not config.PGVECTOR_URL:
+        return problems
+    try:
+        import psycopg
+
+        with psycopg.connect(config.PGVECTOR_URL, connect_timeout=5, autocommit=True) as conn:
+            conn.execute("CREATE EXTENSION IF NOT EXISTS vector")
+            ver = conn.execute(
+                "SELECT extversion FROM pg_extension WHERE extname = 'vector'"
+            ).fetchone()
+            if not ver:
+                problems.append("Postgres 에 vector 확장이 없다 — pgvector 설치(이미지 pgvector/pgvector 권장)")
+    except Exception as e:
+        problems.append(f"PGVECTOR_URL 접속 실패({type(e).__name__}: {e})")
+    return problems
+
+
 def check_mcp_reachable(
     timeout_s: float = 60.0,
     probe=None,
@@ -707,6 +772,7 @@ def run_preflight(role: str = "all") -> dict[str, list[str]]:
     checks: dict[str, list[str]] = {"설정 불변식": check_config()}
     if role in ("all", "mcp"):
         checks["코퍼스 무결성"] = check_corpus()
+        checks["벡터 스토어"] = check_vector_store()
     if role in ("all", "api"):
         checks["업무 데이터 스키마"] = check_tasks()
     if role in ("all", "mcp"):
@@ -741,7 +807,7 @@ def main() -> int:
         resolved = type(get_embedder(config.EMBEDDER_KIND)).__name__
     except Exception as e:
         resolved = f"로드 실패({type(e).__name__})"
-    print(f"임베더: EMBEDDER_KIND={config.EMBEDDER_KIND} → {resolved}")
+    print(f"임베더: EMBEDDER_KIND={config.EMBEDDER_KIND} → {resolved} · 벡터 스토어: {config.VECTOR_STORE}")
     report = run_preflight(role=args.role)
     n_problems = 0
     for group, problems in report.items():

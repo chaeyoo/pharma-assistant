@@ -1,0 +1,40 @@
+# 선택 오버레이 — 밀집임베딩(e5) + pgvector 영속 벡터 스토어
+#
+# 기본 docker-compose.yml 은 경량 이미지(TF-IDF 폴백·인메모리 스토어)다. 이 파일을 겹쳐
+# 쓰면 mcp 이미지를 밀집임베딩 포함(WITH_ML=1)으로 빌드하고, 청크·임베딩을 Postgres
+# (pgvector)에 영속화한다 — mcp 컨테이너를 재기동해도 바뀐 청크만 다시 임베딩하고,
+# 유사도 검색은 DB(HNSW 인덱스)가 수행한다. api 서비스는 그대로다(DB 를 모른다).
+#
+# 실행:  docker compose -f docker-compose.yml -f docker-compose.pgvector.yml up --build
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    environment:
+      - POSTGRES_USER=rapv
+      - POSTGRES_PASSWORD=${PGVECTOR_PASSWORD:-rapv}
+      - POSTGRES_DB=rapv
+    volumes:
+      - pgvector-data:/var/lib/postgresql/data   # 컨테이너를 지워도 임베딩 보존
+    expose:
+      - "5432"            # 내부 네트워크 전용
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rapv -d rapv"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+  mcp:
+    build:
+      context: ./project
+      args:
+        WITH_ML: "1"
+    environment:
+      - EMBEDDER_KIND=dense
+      - VECTOR_STORE=pgvector
+      - PGVECTOR_URL=postgresql://rapv:${PGVECTOR_PASSWORD:-rapv}@db:5432/rapv
+      - PGVECTOR_POOL=${PGVECTOR_POOL:-0}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgvector-data:

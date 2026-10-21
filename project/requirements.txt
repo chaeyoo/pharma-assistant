@@ -12,3 +12,4 @@ itsdangerous==2.2.0   # 서명된 세션 쿠키(Starlette SessionMiddleware)
 pydantic-ai-slim[anthropic,mcp]==2.13.0   # 선택: AGENT_BACKEND=pydantic_ai 백엔드
 langgraph==1.2.10        # 선택: AGENT_BACKEND=langgraph 백엔드 (상태 그래프 tool-use 루프)
 langchain-anthropic==1.5.4   # LangGraph 백엔드의 모델 바인딩(ChatAnthropic)
+psycopg[binary]==3.3.6   # 선택: VECTOR_STORE=pgvector(Postgres 영속 벡터 스토어) — 경량 바이너리 휠이라 기본 포함

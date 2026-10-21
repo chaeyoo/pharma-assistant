@@ -43,6 +43,6 @@ PV 도메인(`src/pv/` 케이스 처리 워크플로)이 항상 나란히 등장
 
 ```bash
 cd project
-.venv/bin/python -m pytest -q      # 393케이스
+.venv/bin/python -m pytest -q      # 406케이스
 .venv/bin/python -m src.preflight  # 배포 전 점검
 ```
