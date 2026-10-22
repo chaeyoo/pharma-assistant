@@ -24,6 +24,12 @@ RUN if [ "$WITH_ML" = "1" ]; then \
     fi
 
 ENV PYTHONUNBUFFERED=1
+# ML 이미지는 모델을 이미지에 구워 넣으므로 기동 때 Hugging Face Hub 에 확인 요청을
+# 보낼 이유가 없다. 그런데 EMBEDDER_KIND=dense 는 local_files_only=False 라 기본값에선
+# 기동마다 허브 메타데이터를 조회한다(Cloud Run 로그의 'unauthenticated requests to the
+# HF Hub' 경고가 그 흔적). 오프라인 고정으로 그 왕복을 없앤다 — 로컬 실측 모델로드
+# 6.0s → 1.3s. WITH_ML=0(경량 이미지)은 값이 0 이라 영향 없다.
+ENV HF_HUB_OFFLINE=${WITH_ML}
 
 EXPOSE 8000
 
