@@ -276,7 +276,15 @@ def get_embedder(kind: str = "auto") -> EmbeddingProvider:
     if kind == "voyage":
         return VoyageEmbedder()
     if kind == "dense":
-        return SentenceTransformerEmbedder()
+        # 받아둔 모델이 있으면 허브 확인 없이 바로 쓴다(기동 지연의 주범이 네트워크
+        # 왕복이다). 없을 때만 다운로드를 허용 — '명시 설정은 시끄럽게 실패' 원칙은
+        # 그대로(다운로드도 실패하면 예외 전파).
+        try:
+            return SentenceTransformerEmbedder(local_files_only=True)
+        except ImportError:
+            raise
+        except Exception:
+            return SentenceTransformerEmbedder()
     if kind == "auto":
         try:
             return SentenceTransformerEmbedder(local_files_only=True)
