@@ -1,0 +1,19 @@
+# Cloud Build 설정 — deploy.sh 가 이미지 빌드에 쓴다.
+#
+# `gcloud builds submit --tag` 는 Docker build-arg 를 못 받으므로, 밀집임베딩 이미지
+# (WITH_ML=1: CPU torch + e5 모델을 이미지에 굽는다)를 만들려면 이 설정 파일을 거쳐야 한다.
+# 경량 이미지(기본, _WITH_ML=0)도 같은 경로로 빌드해 두 모드의 빌드 절차를 하나로 둔다.
+#
+#   gcloud builds submit project/ --config deploy/gcp/cloudbuild.yaml \
+#     --substitutions _IMAGE=<region>-docker.pkg.dev/<project>/pharma/app:<tag>,_WITH_ML=1
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args: ['build', '--build-arg', 'WITH_ML=${_WITH_ML}', '-t', '${_IMAGE}', '.']
+images: ['${_IMAGE}']
+substitutions:
+  _WITH_ML: '0'
+  _IMAGE: ''
+options:
+  logging: CLOUD_LOGGING_ONLY   # 빌드 로그 버킷을 따로 만들지 않는다(기본 버킷 권한 전파 문제 회피)
+# WITH_ML=1 은 torch(CPU) 설치 + 모델 다운로드로 기본 10분 제한을 넘길 수 있다
+timeout: 1800s
