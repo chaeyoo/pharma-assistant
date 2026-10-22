@@ -105,14 +105,16 @@ URL 은 `pa-pgvector-url` 시크릿에 저장되고, 이후 재실행은 `WITH_M
 | pgvector 재부팅 (재사용 72 · 신규 0) | 9.9s | **0.03s** | 9.9s | **20.2s** |
 | Supabase(us-east-1) 재부팅 — 로컬(한국)에서 접속 | 6.1s | 3.9s* | 10.0s | — |
 | **Cloud Run(us-central1) → Supabase(us-east-1) 재부팅 — 실배포** | **31.6s** | **0.64s** | **32.2s** | — (preflight 별도 ~0.7s 색인) |
+| Cloud Run — 1단계(HF Hub 왕복 제거) 후 | ~20s | — | — | — (preflight 프로세스가 한 번 더 로드) |
+| **Cloud Run — 2단계(인프로세스 preflight) 후, 2026-10-23** | **16.1s** | — | — | 로드 1회 — `RAG 인덱스 구축` 로그 1줄 |
 
 \* Supabase 행은 임베딩이 아니라 한국↔미국 동부의 네트워크 왕복(해시 대조·메타 갱신 등 질의당 수백 ms)이 쌓인 값이다 — 검색도 질의당 ~620ms 로 같은 이유. Cloud Run(us-central1)에서는 같은 대륙이라 왕복이 수십 ms 로 줄며, 실측은 배포 뒤 로그로 갱신한다. 수치(Hit@1 등)는 인메모리·로컬 pgvector 와 동일했다.
 
 Cloud Run 실측 읽는 법: 같은 대륙이라 증분 색인은 0.64s(해시 대조 + 메타 갱신의 DB 왕복)로 한국 접속의 3.9s 에서 내려왔고 "재사용 72 · 신규 0" 으로 영속화가 동작했다. 대신 **모델 로드가 31.6s** 로 로컬(Apple Silicon ~9s)의 3배 이상이다 — Cloud Run 의 1 vCPU 에서 torch 임포트 + e5 로드가 그만큼 느리고, preflight 프로세스가 한 번 더 로드하므로(preflight 의 build() 는 canary 가 먼저 로드해 0ms 로 찍힘) 컨테이너 시작→준비는 2분 안팎이다. Cloud Run 기본 기동 제한(240s) 안이지만 여유가 크지 않다. 결론은 로컬 실측과 같다 — 다음 병목은 pgvector 가 아니라 모델 로드다.
 
-**모델 로드 개선 1단계 — 허브 왕복 제거(코드 반영, 재배포 대기).** 로그에 preflight 시작 48초 뒤 "unauthenticated requests to the HF Hub" 경고가 찍혔다 — 모델을 이미지에 구워 넣었는데도 `EMBEDDER_KIND=dense` 가 `local_files_only=False` 라 기동마다 Hugging Face Hub 에 메타데이터를 조회한 것이다. ML 이미지에 `HF_HUB_OFFLINE=1` 을 고정하고 dense 모드도 받아둔 모델을 먼저 쓰도록 바꿨다. 로컬 실측: 허브 확인 포함 로드 6.0s → 1.3s, 임포트 포함 전체 10.7s → 4.9s. Cloud Run 수치는 재배포 뒤 위 표에 추가한다. 다음 후보는 (3) `--cpu 2`, (4) ONNX 백엔드 또는 외부 임베딩 API 로 torch 제거 — 둘 다 비용(과금·전환)이 있어 보류.
+**모델 로드 개선 1단계 — 허브 왕복 제거(2026-10-22 실배포, 모델로드 31.6s → ~20s).** 로그에 preflight 시작 48초 뒤 "unauthenticated requests to the HF Hub" 경고가 찍혔다 — 모델을 이미지에 구워 넣었는데도 `EMBEDDER_KIND=dense` 가 `local_files_only=False` 라 기동마다 Hugging Face Hub 에 메타데이터를 조회한 것이다. ML 이미지에 `HF_HUB_OFFLINE=1` 을 고정하고 dense 모드도 받아둔 모델을 먼저 쓰도록 바꿨다. 로컬 실측: 허브 확인 포함 로드 6.0s → 1.3s, 임포트 포함 전체 10.7s → 4.9s. Cloud Run 수치는 재배포 뒤 위 표에 추가한다. 다음 후보는 (3) `--cpu 2`, (4) ONNX 백엔드 또는 외부 임베딩 API 로 torch 제거 — 둘 다 비용(과금·전환)이 있어 보류.
 
-**모델 로드 개선 2단계 — 이중 로드 제거(코드 반영, 재배포 대기).** 종전 기동 명령 `preflight --role mcp && server` 는 preflight 프로세스와 서버 프로세스가 각각 모델을 로드했다(로그에 `RAG 인덱스 구축:` 이 2줄). 이제 `server.py --preflight` 가 같은 점검을 서버 프로세스 안에서 돌리고, 스모크가 만든 인덱스(`server._pipeline`)와 lru_cache 된 모델을 서버가 그대로 물려받는다 — 로드 1회, 로그 1줄. 판정·출력은 CLI 와 같다(실패하면 서버를 띄우지 않음). 비용 0.
+**모델 로드 개선 2단계 — 이중 로드 제거(2026-10-23 실배포, 모델로드 16.1s × 1회).** 종전 기동 명령 `preflight --role mcp && server` 는 preflight 프로세스와 서버 프로세스가 각각 모델을 로드했다(로그에 `RAG 인덱스 구축:` 이 2줄). 이제 `server.py --preflight` 가 같은 점검을 서버 프로세스 안에서 돌리고, 스모크가 만든 인덱스(`server._pipeline`)와 lru_cache 된 모델을 서버가 그대로 물려받는다 — 로드 1회, 로그 1줄. 판정·출력은 CLI 와 같다(실패하면 서버를 띄우지 않음). 비용 0.
 
 **체감 개선 — 예열과 진행 표시(코드 반영).** 콜드스타트를 없애지 못하는 만큼, 사용자가 그 시간을 '기다리는 이유 없이' 보내지 않게 한다. 챗 페이지는 열리는 순간 `GET /warmup`(MCP /health 를 120s 제한으로 대기)으로 검색 서버를 깨우고 "검색 서버 준비 중 → 준비됨(N s)" 배지를 보여 준다 — 사용자가 예시 질문을 읽고 타이핑하는 동안 기동이 진행된다. 질문은 `POST /chat/stream`(SSE)으로 보내 "검색 서버 연결(콜드스타트면 여기서 수십 초) → 규정 검색 → 답변 생성 → 수치·날짜 검증" 을 실시간으로 그리고, 답변 뒤에는 단계별 ms 타임라인이 남는다. 과금 영향 없음(첫 질문이 유발했을 기동을 앞당길 뿐).
 
