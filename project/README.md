@@ -99,8 +99,9 @@ flowchart TB
 | **배포 전 점검(Day-0)** | 설정·코퍼스·업무데이터·스모크+안전장치 자가 테스트 — 실패 시 기동 차단 | `src/preflight.py` |
 | **사용자 인증·호출 제한** | Google 로그인(OIDC — 인증서버 없이 Google 을 IdP 로 사용, 사내 IdP 로 교체 가능)·허용 목록·사용자별 하루 질문 상한·서명 세션 쿠키, 공개 배포 가드(`REQUIRE_LOGIN`)를 preflight 가 강제 | `src/api/auth.py` |
 | **운영 계기판** | 검증 경고율(`warn_rate_checked`)·감사 로그를 `/health` 노출 | `src/observability.py` |
+| **모델 선택 실험** | 같은 정답셋·같은 검색 결과·같은 프롬프트로 모델 N개의 생성·도구 선택 단계를 비교(정확도·근거 충실도·출처·지연·비용·실패율, 결정론 지표와 심판 지표 분리) → 작업별 모델을 `config/models.json` 으로 설정화, 계기판에 현재 모델·비교 표 노출 | `eval/model_compare/`, `config/models.json` |
 | **실데이터 인제스트** | PDF→코퍼스 변환 경로(헤딩 휴리스틱+frontmatter, 상용 파서 교체 자리) | `scripts/ingest_pdf.py` |
-| **테스트/CI** | pytest 406케이스(불변식/fuzz 포함) + Actions(preflight+평가 6종 회귀) | `tests/`, 루트 `.github/workflows/ci.yml` |
+| **테스트/CI** | pytest 425케이스(불변식/fuzz 포함) + Actions(preflight+평가 6종 회귀) | `tests/`, 루트 `.github/workflows/ci.yml` |
 
 ## 5. 실행 방법
 
@@ -129,11 +130,12 @@ export VECTOR_STORE=pgvector PGVECTOR_URL=postgresql://rapv:rapv@127.0.0.1:5432/
 챗 UI·`/chat` 에 Google 로그인과 사용자별 하루 질문 상한(`DAILY_CHAT_LIMIT`, 기본 30)이 적용된다.
 설정 방법은 `.env.example` 의 '사용자 로그인' 절. 비워 두면 로그인 없이 로컬에서 그대로 동작한다.
 
-품질 확인: `.venv/bin/python -m src.preflight`(배포 전 점검) · `-m pytest`(406케이스) ·
+품질 확인: `.venv/bin/python -m src.preflight`(배포 전 점검) · `-m pytest`(425케이스) ·
 `-m eval.evaluate / sweep / faithfulness / pv_eval / verify_eval / plan_eval / robustness_eval`
-(평가 7종, 95% CI 병기). 키 필요 수동 2종: `-m eval.judge_eval`(LLM judge 실측) ·
-`-m eval.generate_eval_items`(평가셋 후보 생성 — 리뷰 게이트). CI는 매 푸시마다
-preflight+테스트+평가 6종을 실행한다.
+(평가 7종, 95% CI 병기). 키 필요 수동 3종: `-m eval.judge_eval`(LLM judge 실측) ·
+`-m eval.generate_eval_items`(평가셋 후보 생성 — 리뷰 게이트) ·
+`-m eval.model_compare.run`(모델 성능 비교 → 작업별 모델 선택, 보고서 `eval/model_compare/REPORT.md`).
+CI는 매 푸시마다 preflight+테스트+평가 6종을 실행한다.
 
 ## 6. 핵심 수치 (전부 스크립트 1회 실행으로 재현)
 
@@ -158,6 +160,7 @@ preflight+테스트+평가 6종을 실행한다.
 | 견고성(섭동 128) | TypoHit@1 — 실측 (Clean 1.000 대비) | **0.969** [0.922, 0.988] (delta +0.031 — 열화를 숨기지 않음, 핀은 하한 0.90) |
 | 견고성(구어 6) | ColloquialOk — 실측 | **0.500** — 갭 = 동의어 사전·회피 문턱의 개선 여지(라벨 하향으로 숨기지 않음) |
 | 견고성(적대 9) | 주입 무순응 / 도구 판정 불변 | 모두 **1.000** (무관용 핀 — 추출형 구조 + 게이트 상시 부착의 회귀 가드) |
+| **모델 비교(생성 5층 89 + 도구 18)** | Sonnet 5.5 vs Opus 5.5 vs Haiku 4.5 — 핵심어 일치(단순) / 근거 제거 회피 / 도구 선택(관대) | Sonnet **32/32** / **18/18** / 16/18 · Opus 32/32 / 18/18 / 17/18 · Haiku 31/32 / 16/18 / 13/18 — 답변 생성은 Sonnet(Opus 대비 비용 45%·p50 61%), 판정·요약은 Haiku. 근거 `eval/model_compare/README.md` |
 
 - 수치의 상세(모드 4종 비교표·오류 분석 루프 0.867→1.000·검증기 축별 표)는 각 평가 스크립트
   출력에 있다. 소표본 1.000에는 항상 Wilson 95% CI를 병기한다 — '완벽'이 아니라

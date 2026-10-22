@@ -1,0 +1,1192 @@
+{
+  "generated_at": "2026-10-20T15:22:16+00:00",
+  "stage": "all",
+  "runs_per_question": 1,
+  "workers": 4,
+  "tier_sizes": {
+    "simple": 32,
+    "complex": 12,
+    "no_evidence": 32,
+    "out_of_scope": 8,
+    "adversarial": 5,
+    "tool_selection": 18
+  },
+  "models": [
+    "claude-haiku-4-5-20251001",
+    "claude-sonnet-5-5",
+    "claude-opus-5-5"
+  ],
+  "judge_model": "claude-sonnet-5",
+  "judge_cost_usd": 2.6548,
+  "pricing_source_url": "https://platform.claude.com/docs/en/about-claude/pricing",
+  "pricing_checked_on": "2026-10-20",
+  "rescored_at": "2026-10-20T15:23:58+00:00",
+  "rows": [
+    {
+      "stage": "generation",
+      "tier": "simple",
+      "model": "claude-haiku-4-5-20251001",
+      "n": 32,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "failure_kinds": [],
+      "latency_p50_ms": 2618.9,
+      "latency_p95_ms": 4105.4,
+      "input_tokens": 34731,
+      "output_tokens": 7886,
+      "cost_total_usd": 0.0742,
+      "cost_mean_usd": 0.00232,
+      "truncated": 0,
+      "faithfulness_all_supported": {
+        "k": 30,
+        "n": 32,
+        "p": 0.938,
+        "lo": 0.799,
+        "hi": 0.983
+      },
+      "faithfulness_claim_support": {
+        "k": 117,
+        "n": 121,
+        "p": 0.967
+      },
+      "verifier_ok": {
+        "k": 31,
+        "n": 32,
+        "p": 0.969,
+        "lo": 0.843,
+        "hi": 0.994
+      },
+      "citation_present": {
+        "k": 32,
+        "n": 32,
+        "p": 1.0,
+        "lo": 0.893,
+        "hi": 1.0
+      },
+      "correctness_keywords": {
+        "k": 31,
+        "n": 32,
+        "p": 0.969,
+        "lo": 0.843,
+        "hi": 0.994
+      },
+      "correctness_judge": {
+        "k": 31,
+        "n": 32,
+        "p": 0.969,
+        "lo": 0.843,
+        "hi": 0.994
+      },
+      "primary": {
+        "label": "핵심어 일치",
+        "k": 31,
+        "n": 32,
+        "p": 0.969,
+        "lo": 0.843,
+        "hi": 0.994
+      }
+    },
+    {
+      "stage": "generation",
+      "tier": "simple",
+      "model": "claude-sonnet-5-5",
+      "n": 32,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "failure_kinds": [],
+      "latency_p50_ms": 3115.6,
+      "latency_p95_ms": 5876.4,
+      "input_tokens": 35263,
+      "output_tokens": 14271,
+      "cost_total_usd": 0.2132,
+      "cost_mean_usd": 0.00666,
+      "truncated": 0,
+      "faithfulness_all_supported": {
+        "k": 29,
+        "n": 32,
+        "p": 0.906,
+        "lo": 0.758,
+        "hi": 0.968
+      },
+      "faithfulness_claim_support": {
+        "k": 167,
+        "n": 171,
+        "p": 0.977
+      },
+      "verifier_ok": {
+        "k": 32,
+        "n": 32,
+        "p": 1.0,
+        "lo": 0.893,
+        "hi": 1.0
+      },
+      "citation_present": {
+        "k": 32,
+        "n": 32,
+        "p": 1.0,
+        "lo": 0.893,
+        "hi": 1.0
+      },
+      "correctness_keywords": {
+        "k": 32,
+        "n": 32,
+        "p": 1.0,
+        "lo": 0.893,
+        "hi": 1.0
+      },
+      "correctness_judge": {
+        "k": 32,
+        "n": 32,
+        "p": 1.0,
+        "lo": 0.893,
+        "hi": 1.0
+      },
+      "primary": {
+        "label": "핵심어 일치",
+        "k": 32,
+        "n": 32,
+        "p": 1.0,
+        "lo": 0.893,
+        "hi": 1.0
+      }
+    },
+    {
+      "stage": "generation",
+      "tier": "simple",
+      "model": "claude-opus-5-5",
+      "n": 32,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "failure_kinds": [],
+      "latency_p50_ms": 5110.8,
+      "latency_p95_ms": 8202.9,
+      "input_tokens": 35263,
+      "output_tokens": 16556,
+      "cost_total_usd": 0.4722,
+      "cost_mean_usd": 0.01476,
+      "truncated": 0,
+      "faithfulness_all_supported": {
+        "k": 30,
+        "n": 32,
+        "p": 0.938,
+        "lo": 0.799,
+        "hi": 0.983
+      },
+      "faithfulness_claim_support": {
+        "k": 180,
+        "n": 182,
+        "p": 0.989
+      },
+      "verifier_ok": {
+        "k": 32,
+        "n": 32,
+        "p": 1.0,
+        "lo": 0.893,
+        "hi": 1.0
+      },
+      "citation_present": {
+        "k": 32,
+        "n": 32,
+        "p": 1.0,
+        "lo": 0.893,
+        "hi": 1.0
+      },
+      "correctness_keywords": {
+        "k": 32,
+        "n": 32,
+        "p": 1.0,
+        "lo": 0.893,
+        "hi": 1.0
+      },
+      "correctness_judge": {
+        "k": 31,
+        "n": 32,
+        "p": 0.969,
+        "lo": 0.843,
+        "hi": 0.994
+      },
+      "primary": {
+        "label": "핵심어 일치",
+        "k": 32,
+        "n": 32,
+        "p": 1.0,
+        "lo": 0.893,
+        "hi": 1.0
+      }
+    },
+    {
+      "stage": "generation",
+      "tier": "complex",
+      "model": "claude-haiku-4-5-20251001",
+      "n": 12,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "failure_kinds": [],
+      "latency_p50_ms": 3515.0,
+      "latency_p95_ms": 5841.0,
+      "input_tokens": 19141,
+      "output_tokens": 4630,
+      "cost_total_usd": 0.0423,
+      "cost_mean_usd": 0.00352,
+      "truncated": 0,
+      "faithfulness_all_supported": {
+        "k": 7,
+        "n": 12,
+        "p": 0.583,
+        "lo": 0.32,
+        "hi": 0.807
+      },
+      "faithfulness_claim_support": {
+        "k": 51,
+        "n": 63,
+        "p": 0.81
+      },
+      "verifier_ok": {
+        "k": 11,
+        "n": 12,
+        "p": 0.917,
+        "lo": 0.646,
+        "hi": 0.985
+      },
+      "citation_present": {
+        "k": 12,
+        "n": 12,
+        "p": 1.0,
+        "lo": 0.757,
+        "hi": 1.0
+      },
+      "correctness_keywords": {
+        "k": 12,
+        "n": 12,
+        "p": 1.0,
+        "lo": 0.757,
+        "hi": 1.0
+      },
+      "correctness_judge": {
+        "k": 12,
+        "n": 12,
+        "p": 1.0,
+        "lo": 0.757,
+        "hi": 1.0
+      },
+      "context_covers_gold": {
+        "k": 12,
+        "n": 12,
+        "p": 1.0,
+        "lo": 0.757,
+        "hi": 1.0
+      },
+      "primary": {
+        "label": "핵심어 일치",
+        "k": 12,
+        "n": 12,
+        "p": 1.0,
+        "lo": 0.757,
+        "hi": 1.0
+      }
+    },
+    {
+      "stage": "generation",
+      "tier": "complex",
+      "model": "claude-sonnet-5-5",
+      "n": 12,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "failure_kinds": [],
+      "latency_p50_ms": 5494.1,
+      "latency_p95_ms": 8771.8,
+      "input_tokens": 19401,
+      "output_tokens": 9175,
+      "cost_total_usd": 0.1306,
+      "cost_mean_usd": 0.01088,
+      "truncated": 0,
+      "faithfulness_all_supported": {
+        "k": 11,
+        "n": 12,
+        "p": 0.917,
+        "lo": 0.646,
+        "hi": 0.985
+      },
+      "faithfulness_claim_support": {
+        "k": 97,
+        "n": 98,
+        "p": 0.99
+      },
+      "verifier_ok": {
+        "k": 12,
+        "n": 12,
+        "p": 1.0,
+        "lo": 0.757,
+        "hi": 1.0
+      },
+      "citation_present": {
+        "k": 12,
+        "n": 12,
+        "p": 1.0,
+        "lo": 0.757,
+        "hi": 1.0
+      },
+      "correctness_keywords": {
+        "k": 12,
+        "n": 12,
+        "p": 1.0,
+        "lo": 0.757,
+        "hi": 1.0
+      },
+      "correctness_judge": {
+        "k": 12,
+        "n": 12,
+        "p": 1.0,
+        "lo": 0.757,
+        "hi": 1.0
+      },
+      "context_covers_gold": {
+        "k": 12,
+        "n": 12,
+        "p": 1.0,
+        "lo": 0.757,
+        "hi": 1.0
+      },
+      "primary": {
+        "label": "핵심어 일치",
+        "k": 12,
+        "n": 12,
+        "p": 1.0,
+        "lo": 0.757,
+        "hi": 1.0
+      }
+    },
+    {
+      "stage": "generation",
+      "tier": "complex",
+      "model": "claude-opus-5-5",
+      "n": 12,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "failure_kinds": [],
+      "latency_p50_ms": 8826.3,
+      "latency_p95_ms": 15860.3,
+      "input_tokens": 19401,
+      "output_tokens": 11536,
+      "cost_total_usd": 0.3083,
+      "cost_mean_usd": 0.02569,
+      "truncated": 0,
+      "faithfulness_all_supported": {
+        "k": 11,
+        "n": 12,
+        "p": 0.917,
+        "lo": 0.646,
+        "hi": 0.985
+      },
+      "faithfulness_claim_support": {
+        "k": 125,
+        "n": 126,
+        "p": 0.992
+      },
+      "verifier_ok": {
+        "k": 12,
+        "n": 12,
+        "p": 1.0,
+        "lo": 0.757,
+        "hi": 1.0
+      },
+      "citation_present": {
+        "k": 12,
+        "n": 12,
+        "p": 1.0,
+        "lo": 0.757,
+        "hi": 1.0
+      },
+      "correctness_keywords": {
+        "k": 12,
+        "n": 12,
+        "p": 1.0,
+        "lo": 0.757,
+        "hi": 1.0
+      },
+      "correctness_judge": {
+        "k": 12,
+        "n": 12,
+        "p": 1.0,
+        "lo": 0.757,
+        "hi": 1.0
+      },
+      "context_covers_gold": {
+        "k": 12,
+        "n": 12,
+        "p": 1.0,
+        "lo": 0.757,
+        "hi": 1.0
+      },
+      "primary": {
+        "label": "핵심어 일치",
+        "k": 12,
+        "n": 12,
+        "p": 1.0,
+        "lo": 0.757,
+        "hi": 1.0
+      }
+    },
+    {
+      "stage": "generation",
+      "tier": "no_evidence",
+      "model": "claude-haiku-4-5-20251001",
+      "n": 32,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "failure_kinds": [],
+      "latency_p50_ms": 2350.6,
+      "latency_p95_ms": 4180.6,
+      "input_tokens": 34953,
+      "output_tokens": 7378,
+      "cost_total_usd": 0.0718,
+      "cost_mean_usd": 0.00225,
+      "truncated": 0,
+      "faithfulness_all_supported": {
+        "k": 27,
+        "n": 32,
+        "p": 0.844,
+        "lo": 0.682,
+        "hi": 0.931
+      },
+      "faithfulness_claim_support": {
+        "k": 47,
+        "n": 54,
+        "p": 0.87
+      },
+      "verifier_ok": {
+        "k": 31,
+        "n": 32,
+        "p": 0.969,
+        "lo": 0.843,
+        "hi": 0.994
+      },
+      "citation_present": {
+        "k": 12,
+        "n": 32,
+        "p": 0.375,
+        "lo": 0.229,
+        "hi": 0.547
+      },
+      "n_leaked": 14,
+      "abstain_ok": {
+        "k": 16,
+        "n": 18,
+        "p": 0.889,
+        "lo": 0.672,
+        "hi": 0.969
+      },
+      "hallucinated_numbers": {
+        "k": 1,
+        "n": 18,
+        "p": 0.056,
+        "lo": 0.01,
+        "hi": 0.258
+      },
+      "asserted_without_evidence": {
+        "k": 0,
+        "n": 18,
+        "p": 0.0,
+        "lo": 0.0,
+        "hi": 0.176
+      },
+      "primary": {
+        "label": "회피 정확",
+        "k": 16,
+        "n": 18,
+        "p": 0.889,
+        "lo": 0.672,
+        "hi": 0.969
+      }
+    },
+    {
+      "stage": "generation",
+      "tier": "no_evidence",
+      "model": "claude-sonnet-5-5",
+      "n": 32,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "failure_kinds": [],
+      "latency_p50_ms": 4615.2,
+      "latency_p95_ms": 6808.4,
+      "input_tokens": 35462,
+      "output_tokens": 16954,
+      "cost_total_usd": 0.2405,
+      "cost_mean_usd": 0.00751,
+      "truncated": 0,
+      "faithfulness_all_supported": {
+        "k": 31,
+        "n": 32,
+        "p": 0.969,
+        "lo": 0.843,
+        "hi": 0.994
+      },
+      "faithfulness_claim_support": {
+        "k": 129,
+        "n": 130,
+        "p": 0.992
+      },
+      "verifier_ok": {
+        "k": 32,
+        "n": 32,
+        "p": 1.0,
+        "lo": 0.893,
+        "hi": 1.0
+      },
+      "citation_present": {
+        "k": 32,
+        "n": 32,
+        "p": 1.0,
+        "lo": 0.893,
+        "hi": 1.0
+      },
+      "n_leaked": 14,
+      "abstain_ok": {
+        "k": 18,
+        "n": 18,
+        "p": 1.0,
+        "lo": 0.824,
+        "hi": 1.0
+      },
+      "hallucinated_numbers": {
+        "k": 0,
+        "n": 18,
+        "p": 0.0,
+        "lo": 0.0,
+        "hi": 0.176
+      },
+      "asserted_without_evidence": {
+        "k": 0,
+        "n": 18,
+        "p": 0.0,
+        "lo": 0.0,
+        "hi": 0.176
+      },
+      "primary": {
+        "label": "회피 정확",
+        "k": 18,
+        "n": 18,
+        "p": 1.0,
+        "lo": 0.824,
+        "hi": 1.0
+      }
+    },
+    {
+      "stage": "generation",
+      "tier": "no_evidence",
+      "model": "claude-opus-5-5",
+      "n": 32,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "failure_kinds": [],
+      "latency_p50_ms": 6520.0,
+      "latency_p95_ms": 11080.3,
+      "input_tokens": 35462,
+      "output_tokens": 20017,
+      "cost_total_usd": 0.5422,
+      "cost_mean_usd": 0.01694,
+      "truncated": 0,
+      "faithfulness_all_supported": {
+        "k": 27,
+        "n": 32,
+        "p": 0.844,
+        "lo": 0.682,
+        "hi": 0.931
+      },
+      "faithfulness_claim_support": {
+        "k": 166,
+        "n": 174,
+        "p": 0.954
+      },
+      "verifier_ok": {
+        "k": 32,
+        "n": 32,
+        "p": 1.0,
+        "lo": 0.893,
+        "hi": 1.0
+      },
+      "citation_present": {
+        "k": 32,
+        "n": 32,
+        "p": 1.0,
+        "lo": 0.893,
+        "hi": 1.0
+      },
+      "n_leaked": 14,
+      "abstain_ok": {
+        "k": 18,
+        "n": 18,
+        "p": 1.0,
+        "lo": 0.824,
+        "hi": 1.0
+      },
+      "hallucinated_numbers": {
+        "k": 0,
+        "n": 18,
+        "p": 0.0,
+        "lo": 0.0,
+        "hi": 0.176
+      },
+      "asserted_without_evidence": {
+        "k": 0,
+        "n": 18,
+        "p": 0.0,
+        "lo": 0.0,
+        "hi": 0.176
+      },
+      "primary": {
+        "label": "회피 정확",
+        "k": 18,
+        "n": 18,
+        "p": 1.0,
+        "lo": 0.824,
+        "hi": 1.0
+      }
+    },
+    {
+      "stage": "generation",
+      "tier": "out_of_scope",
+      "model": "claude-haiku-4-5-20251001",
+      "n": 8,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "failure_kinds": [],
+      "latency_p50_ms": 2234.4,
+      "latency_p95_ms": 2599.1,
+      "input_tokens": 6256,
+      "output_tokens": 1415,
+      "cost_total_usd": 0.0133,
+      "cost_mean_usd": 0.00167,
+      "truncated": 0,
+      "faithfulness_all_supported": {
+        "k": 8,
+        "n": 8,
+        "p": 1.0,
+        "lo": 0.676,
+        "hi": 1.0
+      },
+      "faithfulness_claim_support": {
+        "k": 0,
+        "n": 0,
+        "p": null
+      },
+      "verifier_ok": {
+        "k": 8,
+        "n": 8,
+        "p": 1.0,
+        "lo": 0.676,
+        "hi": 1.0
+      },
+      "citation_present": {
+        "k": 0,
+        "n": 8,
+        "p": 0.0,
+        "lo": 0.0,
+        "hi": 0.324
+      },
+      "n_leaked": 0,
+      "abstain_ok": {
+        "k": 8,
+        "n": 8,
+        "p": 1.0,
+        "lo": 0.676,
+        "hi": 1.0
+      },
+      "hallucinated_numbers": {
+        "k": 0,
+        "n": 8,
+        "p": 0.0,
+        "lo": 0.0,
+        "hi": 0.324
+      },
+      "primary": {
+        "label": "회피 정확",
+        "k": 8,
+        "n": 8,
+        "p": 1.0,
+        "lo": 0.676,
+        "hi": 1.0
+      }
+    },
+    {
+      "stage": "generation",
+      "tier": "out_of_scope",
+      "model": "claude-sonnet-5-5",
+      "n": 8,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "failure_kinds": [],
+      "latency_p50_ms": 3376.2,
+      "latency_p95_ms": 4506.3,
+      "input_tokens": 6389,
+      "output_tokens": 2641,
+      "cost_total_usd": 0.0392,
+      "cost_mean_usd": 0.0049,
+      "truncated": 0,
+      "faithfulness_all_supported": {
+        "k": 8,
+        "n": 8,
+        "p": 1.0,
+        "lo": 0.676,
+        "hi": 1.0
+      },
+      "faithfulness_claim_support": {
+        "k": 6,
+        "n": 6,
+        "p": 1.0
+      },
+      "verifier_ok": {
+        "k": 8,
+        "n": 8,
+        "p": 1.0,
+        "lo": 0.676,
+        "hi": 1.0
+      },
+      "citation_present": {
+        "k": 2,
+        "n": 8,
+        "p": 0.25,
+        "lo": 0.071,
+        "hi": 0.591
+      },
+      "n_leaked": 0,
+      "abstain_ok": {
+        "k": 8,
+        "n": 8,
+        "p": 1.0,
+        "lo": 0.676,
+        "hi": 1.0
+      },
+      "hallucinated_numbers": {
+        "k": 0,
+        "n": 8,
+        "p": 0.0,
+        "lo": 0.0,
+        "hi": 0.324
+      },
+      "primary": {
+        "label": "회피 정확",
+        "k": 8,
+        "n": 8,
+        "p": 1.0,
+        "lo": 0.676,
+        "hi": 1.0
+      }
+    },
+    {
+      "stage": "generation",
+      "tier": "out_of_scope",
+      "model": "claude-opus-5-5",
+      "n": 8,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "failure_kinds": [],
+      "latency_p50_ms": 5667.7,
+      "latency_p95_ms": 6784.8,
+      "input_tokens": 6389,
+      "output_tokens": 3180,
+      "cost_total_usd": 0.0892,
+      "cost_mean_usd": 0.01114,
+      "truncated": 0,
+      "faithfulness_all_supported": {
+        "k": 8,
+        "n": 8,
+        "p": 1.0,
+        "lo": 0.676,
+        "hi": 1.0
+      },
+      "faithfulness_claim_support": {
+        "k": 11,
+        "n": 11,
+        "p": 1.0
+      },
+      "verifier_ok": {
+        "k": 8,
+        "n": 8,
+        "p": 1.0,
+        "lo": 0.676,
+        "hi": 1.0
+      },
+      "citation_present": {
+        "k": 5,
+        "n": 8,
+        "p": 0.625,
+        "lo": 0.306,
+        "hi": 0.863
+      },
+      "n_leaked": 0,
+      "abstain_ok": {
+        "k": 8,
+        "n": 8,
+        "p": 1.0,
+        "lo": 0.676,
+        "hi": 1.0
+      },
+      "hallucinated_numbers": {
+        "k": 0,
+        "n": 8,
+        "p": 0.0,
+        "lo": 0.0,
+        "hi": 0.324
+      },
+      "primary": {
+        "label": "회피 정확",
+        "k": 8,
+        "n": 8,
+        "p": 1.0,
+        "lo": 0.676,
+        "hi": 1.0
+      }
+    },
+    {
+      "stage": "generation",
+      "tier": "adversarial",
+      "model": "claude-haiku-4-5-20251001",
+      "n": 5,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "failure_kinds": [],
+      "latency_p50_ms": 3031.8,
+      "latency_p95_ms": 3203.4,
+      "input_tokens": 6255,
+      "output_tokens": 1250,
+      "cost_total_usd": 0.0125,
+      "cost_mean_usd": 0.0025,
+      "truncated": 0,
+      "faithfulness_all_supported": {
+        "k": 4,
+        "n": 5,
+        "p": 0.8,
+        "lo": 0.376,
+        "hi": 0.964
+      },
+      "faithfulness_claim_support": {
+        "k": 10,
+        "n": 11,
+        "p": 0.909
+      },
+      "verifier_ok": {
+        "k": 3,
+        "n": 5,
+        "p": 0.6,
+        "lo": 0.231,
+        "hi": 0.882
+      },
+      "citation_present": {
+        "k": 4,
+        "n": 5,
+        "p": 0.8,
+        "lo": 0.376,
+        "hi": 0.964
+      },
+      "marker_present": {
+        "k": 2,
+        "n": 5,
+        "p": 0.4,
+        "lo": 0.118,
+        "hi": 0.769
+      },
+      "hallucinated_numbers": {
+        "k": 0,
+        "n": 5,
+        "p": 0.0,
+        "lo": 0.0,
+        "hi": 0.434
+      },
+      "injection_resisted": {
+        "k": 5,
+        "n": 5,
+        "p": 1.0,
+        "lo": 0.566,
+        "hi": 1.0
+      },
+      "primary": {
+        "label": "주입 무순응",
+        "k": 5,
+        "n": 5,
+        "p": 1.0,
+        "lo": 0.566,
+        "hi": 1.0
+      }
+    },
+    {
+      "stage": "generation",
+      "tier": "adversarial",
+      "model": "claude-sonnet-5-5",
+      "n": 5,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "failure_kinds": [],
+      "latency_p50_ms": 4746.0,
+      "latency_p95_ms": 6354.3,
+      "input_tokens": 6405,
+      "output_tokens": 3198,
+      "cost_total_usd": 0.0448,
+      "cost_mean_usd": 0.00896,
+      "truncated": 0,
+      "faithfulness_all_supported": {
+        "k": 5,
+        "n": 5,
+        "p": 1.0,
+        "lo": 0.566,
+        "hi": 1.0
+      },
+      "faithfulness_claim_support": {
+        "k": 32,
+        "n": 32,
+        "p": 1.0
+      },
+      "verifier_ok": {
+        "k": 2,
+        "n": 5,
+        "p": 0.4,
+        "lo": 0.118,
+        "hi": 0.769
+      },
+      "citation_present": {
+        "k": 5,
+        "n": 5,
+        "p": 1.0,
+        "lo": 0.566,
+        "hi": 1.0
+      },
+      "marker_present": {
+        "k": 3,
+        "n": 5,
+        "p": 0.6,
+        "lo": 0.231,
+        "hi": 0.882
+      },
+      "hallucinated_numbers": {
+        "k": 0,
+        "n": 5,
+        "p": 0.0,
+        "lo": 0.0,
+        "hi": 0.434
+      },
+      "injection_resisted": {
+        "k": 5,
+        "n": 5,
+        "p": 1.0,
+        "lo": 0.566,
+        "hi": 1.0
+      },
+      "primary": {
+        "label": "주입 무순응",
+        "k": 5,
+        "n": 5,
+        "p": 1.0,
+        "lo": 0.566,
+        "hi": 1.0
+      }
+    },
+    {
+      "stage": "generation",
+      "tier": "adversarial",
+      "model": "claude-opus-5-5",
+      "n": 5,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "failure_kinds": [],
+      "latency_p50_ms": 6129.1,
+      "latency_p95_ms": 8194.3,
+      "input_tokens": 6405,
+      "output_tokens": 3264,
+      "cost_total_usd": 0.0909,
+      "cost_mean_usd": 0.01818,
+      "truncated": 0,
+      "faithfulness_all_supported": {
+        "k": 3,
+        "n": 5,
+        "p": 0.6,
+        "lo": 0.231,
+        "hi": 0.882
+      },
+      "faithfulness_claim_support": {
+        "k": 35,
+        "n": 39,
+        "p": 0.897
+      },
+      "verifier_ok": {
+        "k": 2,
+        "n": 5,
+        "p": 0.4,
+        "lo": 0.118,
+        "hi": 0.769
+      },
+      "citation_present": {
+        "k": 5,
+        "n": 5,
+        "p": 1.0,
+        "lo": 0.566,
+        "hi": 1.0
+      },
+      "marker_present": {
+        "k": 3,
+        "n": 5,
+        "p": 0.6,
+        "lo": 0.231,
+        "hi": 0.882
+      },
+      "hallucinated_numbers": {
+        "k": 0,
+        "n": 5,
+        "p": 0.0,
+        "lo": 0.0,
+        "hi": 0.434
+      },
+      "injection_resisted": {
+        "k": 5,
+        "n": 5,
+        "p": 1.0,
+        "lo": 0.566,
+        "hi": 1.0
+      },
+      "primary": {
+        "label": "주입 무순응",
+        "k": 5,
+        "n": 5,
+        "p": 1.0,
+        "lo": 0.566,
+        "hi": 1.0
+      }
+    },
+    {
+      "stage": "tool_selection",
+      "tier": "tool_selection",
+      "model": "claude-haiku-4-5-20251001",
+      "n": 18,
+      "failures": 2,
+      "failure_rate": 0.111,
+      "failure_kinds": [
+        "schema_error"
+      ],
+      "latency_p50_ms": 1572.3,
+      "latency_p95_ms": 3244.2,
+      "input_tokens": 140823,
+      "output_tokens": 2721,
+      "cost_total_usd": 0.1544,
+      "cost_mean_usd": 0.00858,
+      "truncated": 0,
+      "tool_choice_ok": {
+        "k": 12,
+        "n": 18,
+        "p": 0.667,
+        "lo": 0.437,
+        "hi": 0.837
+      },
+      "tool_choice_lenient": {
+        "k": 13,
+        "n": 18,
+        "p": 0.722,
+        "lo": 0.491,
+        "hi": 0.875
+      },
+      "tool_param_ok": {
+        "k": 9,
+        "n": 13,
+        "p": 0.692,
+        "lo": 0.424,
+        "hi": 0.873
+      },
+      "primary": {
+        "label": "도구 선택 정확",
+        "k": 12,
+        "n": 18,
+        "p": 0.667,
+        "lo": 0.437,
+        "hi": 0.837
+      }
+    },
+    {
+      "stage": "tool_selection",
+      "tier": "tool_selection",
+      "model": "claude-sonnet-5-5",
+      "n": 18,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "failure_kinds": [],
+      "latency_p50_ms": 2048.2,
+      "latency_p95_ms": 3522.3,
+      "input_tokens": 68111,
+      "output_tokens": 2710,
+      "cost_total_usd": 0.1633,
+      "cost_mean_usd": 0.00907,
+      "truncated": 0,
+      "tool_choice_ok": {
+        "k": 10,
+        "n": 18,
+        "p": 0.556,
+        "lo": 0.337,
+        "hi": 0.754
+      },
+      "tool_choice_lenient": {
+        "k": 16,
+        "n": 18,
+        "p": 0.889,
+        "lo": 0.672,
+        "hi": 0.969
+      },
+      "tool_param_ok": {
+        "k": 11,
+        "n": 15,
+        "p": 0.733,
+        "lo": 0.48,
+        "hi": 0.891
+      },
+      "primary": {
+        "label": "도구 선택 정확",
+        "k": 10,
+        "n": 18,
+        "p": 0.556,
+        "lo": 0.337,
+        "hi": 0.754
+      }
+    },
+    {
+      "stage": "tool_selection",
+      "tier": "tool_selection",
+      "model": "claude-opus-5-5",
+      "n": 18,
+      "failures": 0,
+      "failure_rate": 0.0,
+      "failure_kinds": [],
+      "latency_p50_ms": 2150.9,
+      "latency_p95_ms": 9767.9,
+      "input_tokens": 68111,
+      "output_tokens": 2234,
+      "cost_total_usd": 0.3171,
+      "cost_mean_usd": 0.01762,
+      "truncated": 0,
+      "tool_choice_ok": {
+        "k": 14,
+        "n": 18,
+        "p": 0.778,
+        "lo": 0.548,
+        "hi": 0.91
+      },
+      "tool_choice_lenient": {
+        "k": 17,
+        "n": 18,
+        "p": 0.944,
+        "lo": 0.742,
+        "hi": 0.99
+      },
+      "tool_param_ok": {
+        "k": 10,
+        "n": 15,
+        "p": 0.667,
+        "lo": 0.417,
+        "hi": 0.848
+      },
+      "primary": {
+        "label": "도구 선택 정확",
+        "k": 14,
+        "n": 18,
+        "p": 0.778,
+        "lo": 0.548,
+        "hi": 0.91
+      }
+    }
+  ]
+}

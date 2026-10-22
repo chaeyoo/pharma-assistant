@@ -6,6 +6,7 @@
   POST /chat        → 사용자 메시지 → 에이전트 응답(+도구호출·출처)
   GET  /api/deadlines → 대시보드용 마감일 (부가)
   GET  /dashboard   → 운영 계기판 — /health 를 폴링해 경고율·축별 분해를 그리는 화면
+  GET  /model-compare/report → 모델 비교 실험 보고서(eval/model_compare/REPORT.md) 원문
   GET  /dictionary  → 용어 사전 플래시카드 (description/dictionary.html, self-contained)
   GET  /blank       → 예제문100 빈칸 퀴즈 (description/blank.html, self-contained)
   GET  /login · /auth/google · /auth/callback · /logout · /api/me → Google 로그인(src/api/auth.py)
@@ -107,6 +108,25 @@ class ChatResponse(BaseModel):
     remaining_today: int | None = None
 
 
+MODEL_COMPARE_DIR = config.BASE_DIR / "eval" / "model_compare"
+
+
+def _model_compare_summary() -> dict:
+    """최근 비교 실험 집계 — 파일이 없거나 깨졌으면 available=False 로 드러낸다(조용한 빈 표 금지)."""
+    path = MODEL_COMPARE_DIR / "summary.json"
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {"available": False, "report_url": "/model-compare/report"}
+    return {
+        "available": True,
+        "generated_at": data.get("generated_at"),
+        "judge_model": data.get("judge_model"),
+        "rows": data.get("rows", []),
+        "report_url": "/model-compare/report",
+    }
+
+
 @app.get("/health")
 async def health() -> JSONResponse:
     mcp_info = await _mcp_status()
@@ -128,6 +148,14 @@ async def health() -> JSONResponse:
             # 검증 게이트 운영 계기판 — 경고율이 오르면 (a) 답변 품질 회귀 또는
             # (b) 검증기 오탐 증가(alert fatigue 위험)의 조기 신호다.
             "verification_gate": gate_stats.snapshot(),
+            # 작업별 현재 모델(config/models.json + 환경변수) — 계기판 '모델 선택' 섹션.
+            "models": {
+                "answer": config.LLM_MODEL,
+                "judge": config.JUDGE_MODEL,
+                "summary": config.SUMMARY_MODEL,
+            },
+            # 최근 모델 비교 실험 집계(eval/model_compare/summary.json) — 없으면 available=False.
+            "model_compare": _model_compare_summary(),
         }
     )
 
@@ -191,6 +219,20 @@ async def dashboard(request: Request):
     # (계기판에서 축이 조용히 빠지는 실패를 만들지 않는다 — observability.py 와 같은 규율).
     html = (config.WEB_DIR / "dashboard.html").read_text(encoding="utf-8")
     return HTMLResponse(html)
+
+
+@app.get("/model-compare/report")
+async def model_compare_report(request: Request):
+    """모델 비교 실험 보고서(eval/model_compare/REPORT.md) 원문 — 계기판 링크 대상.
+    /dashboard 와 같은 로그인 게이트. 실험 미실행이면 404(빈 보고서를 지어내지 않는다)."""
+    if not auth.current_user(request):
+        return RedirectResponse("/login")
+    path = MODEL_COMPARE_DIR / "REPORT.md"
+    if not path.exists():
+        return JSONResponse({"error": "모델 비교 실험 보고서가 아직 없다(python -m eval.model_compare.run)"}, status_code=404)
+    from fastapi.responses import PlainTextResponse
+
+    return PlainTextResponse(path.read_text(encoding="utf-8"), media_type="text/markdown; charset=utf-8")
 
 
 @app.get("/dictionary", response_class=HTMLResponse)

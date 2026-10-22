@@ -1,0 +1,8 @@
+{
+  "_comment": "작업 종류별 Claude 모델 설정 — 코드가 아니라 이 파일(과 환경변수 LLM_MODEL·JUDGE_MODEL·SUMMARY_MODEL 우선)에서 모델명이 온다. answer=답변 생성(에이전트 루프), judge=LLM 2차 검증(src/verify/llm_judge.py), summary=요약·분류처럼 비용 민감한 보조 작업. 선정 근거는 _source 의 비교 실험 보고서 (d) 절.",
+  "answer": "claude-sonnet-5-5",
+  "judge": "claude-haiku-4-5-20251001",
+  "summary": "claude-haiku-4-5-20251001",
+  "_source": "eval/model_compare/REPORT.md — 같은 정답셋(생성 5층 89문항 + 도구 선택 18문항)으로 Haiku 4.5·Sonnet 5.5·Opus 5.5 를 1회씩 실측 비교",
+  "_decided_on": "2026-10-21"
+}
