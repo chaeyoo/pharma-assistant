@@ -17,6 +17,10 @@ services:
       - pgvector-data:/var/lib/postgresql/data   # 컨테이너를 지워도 임베딩 보존
     expose:
       - "5432"            # 내부 네트워크 전용
+    ports:
+      # 호스트의 .venv 에서 eval·실 DB 테스트를 같은 DB 에 대고 돌리기 위한 루프백 바인딩
+      # (외부 인터페이스에는 열리지 않는다). 충돌 시 PGVECTOR_HOST_PORT 로 바꾼다.
+      - "127.0.0.1:${PGVECTOR_HOST_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U rapv -d rapv"]
       interval: 5s
