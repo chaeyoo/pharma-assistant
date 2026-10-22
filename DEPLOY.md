@@ -16,7 +16,8 @@
   RAG 인덱스는 기본 인메모리이고, 선택으로 Postgres(pgvector)에 영속화할 수 있다
   (`VECTOR_STORE=pgvector` + `PGVECTOR_URL`, mcp 서비스에만 — 밀집임베딩 이미지 `WITH_ML=1` 전제).
   로컬 확인은 `docker-compose.pgvector.yml` 오버레이, 호스트에서는 관리형 Postgres 에 `vector` 확장을 켠다
-  (Render Postgres·Supabase·Neon·Cloud SQL 모두 지원).
+  (Render Postgres·Supabase·Neon·Cloud SQL 모두 지원). Cloud Run 에서는 `deploy/gcp/README.md` 의 4차 단계가
+  Supabase 무료 티어로 이 조합을 opt-in 으로 켠다.
 - 리포에 배포 파일이 들어 있다: `render.yaml`(레포 루트, 2-서비스 Blueprint),
   `docker-compose.yml`(레포 루트), `project/Dockerfile`, `project/.dockerignore`.
 - 자작 규제 코퍼스라 실 PII·비밀이 없어 공개 배포는 안전하다.
