@@ -13,6 +13,10 @@
 #        → Google 로그인 + 사용자별 하루 질문 상한 + 공개 가드(REQUIRE_LOGIN=1)
 #   3차  ANTHROPIC_API_KEY=sk-ant-... bash deploy/gcp/deploy.sh <PROJECT_ID>
 #        → LLM 모드. 로그인이 켜져 있지 않으면 거부한다(비용 보호).
+#   4차  WITH_ML=1 PGVECTOR_URL='postgresql://...?sslmode=require' bash deploy/gcp/deploy.sh <PROJECT_ID>
+#        → 밀집임베딩(e5) 이미지 + pgvector 영속 벡터 스토어(Supabase 등 외부 Postgres).
+#          pharma-mcp 만 바뀐다(메모리 2GiB·EMBEDDER_KIND=dense·VECTOR_STORE=pgvector).
+#          WITH_ML=1 만 주면 밀집임베딩 + 인메모리 스토어. 되돌리기: WITH_ML=0 으로 재실행.
 #
 # 비밀값(API 키·시크릿)은 Secret Manager 에 한 번 저장되고, 이후 실행에서는 다시 줄
 # 필요가 없다. 비용: 요청이 없으면 인스턴스 0대(min-instances=0), 최대 2대로 제한.
@@ -29,10 +33,11 @@ MCP_SERVICE="${MCP_SERVICE:-pharma-mcp}"
 API_SERVICE="${API_SERVICE:-pharma-api}"
 DAILY_CHAT_LIMIT="${DAILY_CHAT_LIMIT:-30}"
 AGENT_BACKEND="${AGENT_BACKEND:-langgraph}"
+PGVECTOR_POOL="${PGVECTOR_POOL:-0}"      # 4차: 벡터 후보 풀(0=전수, 인메모리와 동일 결과)
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 TAG="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || date +%Y%m%d%H%M%S)"
-IMAGE="$REGION-docker.pkg.dev/$PROJECT_ID/$AR_REPO/app:$TAG"
+IMAGE_BASE="$REGION-docker.pkg.dev/$PROJECT_ID/$AR_REPO/app"   # 태그는 4차 판정 뒤(ML 여부)에 붙인다
 
 say() { printf '\n\033[1;36m▶ %s\033[0m\n' "$*"; }
 
@@ -120,6 +125,17 @@ check_ascii_token() {  # check_ascii_token NAME VALUE PREFIX
 [[ -n "${ANTHROPIC_API_KEY:-}"    ]] && check_ascii_token ANTHROPIC_API_KEY "$ANTHROPIC_API_KEY" "sk-ant-"
 [[ -n "${GOOGLE_CLIENT_SECRET:-}" ]] && put_secret pa-google-client-secret "$GOOGLE_CLIENT_SECRET"
 [[ -n "${ANTHROPIC_API_KEY:-}"   ]] && put_secret pa-anthropic-api-key "$ANTHROPIC_API_KEY"
+# 4차 — pgvector 접속 URL. 접속 문자열은 ':@/?=' 를 품으므로 check_ascii_token 대신 따로 검사한다.
+if [[ -n "${PGVECTOR_URL:-}" ]]; then
+  if ! printf '%s' "$PGVECTOR_URL" | LC_ALL=C grep -qE '^postgres(ql)?://[!-~]+$'; then
+    echo "PGVECTOR_URL 은 postgresql:// 로 시작하고 공백·한글이 없어야 합니다(비밀번호 특수문자는 퍼센트 인코딩)." >&2; exit 1
+  fi
+  case "$PGVECTOR_URL" in
+    *sslmode=*) ;;
+    *) echo "경고: PGVECTOR_URL 에 sslmode=require 가 없습니다 — 외부 Postgres(Supabase 등)는 TLS 를 켜 두세요." >&2 ;;
+  esac
+  put_secret pa-pgvector-url "$PGVECTOR_URL"
+fi
 
 # 로그인 설정은 서비스에 이미 있으면 유지한다(2차 이후 재실행 때 다시 안 줘도 되게)
 current_env() {  # current_env SERVICE KEY
@@ -138,6 +154,23 @@ ALLOWED_DOMAINS="${ALLOWED_DOMAINS:-$(current_env "$API_SERVICE" ALLOWED_DOMAINS
 LLM_MODEL="${LLM_MODEL:-$(current_env "$API_SERVICE" LLM_MODEL)}"
 LLM_MODEL="${LLM_MODEL:-$(python3 -c "import json;print(json.load(open('$ROOT/project/config/models.json'))['answer'])")}"
 
+# 4차 — 밀집임베딩 이미지 여부. 미지정이면 배포된 MCP 서비스의 상태를 따른다(재실행 때 유지).
+# 되돌리려면 WITH_ML=0 을 명시한다.
+if [[ -z "${WITH_ML:-}" ]]; then
+  [[ "$(current_env "$MCP_SERVICE" EMBEDDER_KIND)" == "dense" ]] && WITH_ML=1 || WITH_ML=0
+fi
+[[ "$WITH_ML" == 1 ]] || WITH_ML=0
+PGVECTOR_ON=0
+if secret_exists pa-pgvector-url; then
+  if [[ "$WITH_ML" != 1 ]]; then
+    echo "pgvector 스토어(pa-pgvector-url)는 밀집임베딩 이미지가 필요합니다 — WITH_ML=1 로 재실행하세요." >&2
+    echo "(pgvector 를 끄려면: gcloud secrets delete pa-pgvector-url)" >&2
+    exit 1
+  fi
+  PGVECTOR_ON=1
+fi
+IMAGE="$IMAGE_BASE:$TAG"; [[ "$WITH_ML" == 1 ]] && IMAGE="$IMAGE-ml"   # 같은 커밋의 경량·ML 이미지 구분
+
 LOGIN_ON=0
 if [[ -n "$GOOGLE_CLIENT_ID" ]]; then
   secret_exists pa-google-client-secret || { echo "GOOGLE_CLIENT_SECRET 도 함께 주세요." >&2; exit 1; }
@@ -153,10 +186,12 @@ if secret_exists pa-anthropic-api-key; then
 fi
 
 # ---------------------------------------------------------------- 5. 빌드
-say "컨테이너 이미지 빌드 (Cloud Build, 3~5분): $IMAGE"
+say "컨테이너 이미지 빌드 (Cloud Build, $([[ $WITH_ML == 1 ]] && echo '밀집임베딩 포함 8~12분' || echo '3~5분')): $IMAGE"
+# --tag 는 build-arg 를 못 받으므로 cloudbuild.yaml 을 거친다(WITH_ML 치환).
 # 방금 부여한 권한이 퍼지기 전이면 실패할 수 있어 1분 간격으로 최대 3번 시도한다.
 for TRY in 1 2 3; do
-  if gcloud builds submit "$ROOT/project" --tag "$IMAGE" --region "$REGION" \
+  if gcloud builds submit "$ROOT/project" --config "$ROOT/deploy/gcp/cloudbuild.yaml" \
+       --substitutions "_IMAGE=$IMAGE,_WITH_ML=$WITH_ML" --region "$REGION" \
        --gcs-source-staging-dir "$BUILD_BUCKET/source" \
        --default-buckets-behavior regional-user-owned-bucket --quiet; then
     break
@@ -168,12 +203,25 @@ done
 # ---------------------------------------------------------------- 6. MCP 서버
 # 도구 서버. 외부 MCP 클라이언트도 붙을 수 있게 공개 URL 이지만 Bearer 토큰이 필수이고,
 # 토큰이 비면 preflight 가 기동을 거부한다(MCP_REQUIRE_AUTH=1).
+# 4차: 밀집임베딩이면 torch+e5 로딩 몫으로 메모리 2GiB, 콜드스타트 단축용 CPU 부스트.
+# --set-env-vars/--set-secrets 는 전체 교체라 WITH_ML=0 으로 재실행하면 그대로 원복된다.
+MCP_ENV="MCP_REQUIRE_AUTH=1"
+MCP_SECRETS="MCP_AUTH_TOKEN=pa-mcp-auth-token:latest"
+MCP_RES=(--memory 1Gi --cpu 1)
+if [[ "$WITH_ML" == 1 ]]; then
+  MCP_ENV="$MCP_ENV##EMBEDDER_KIND=dense"
+  MCP_RES=(--memory 2Gi --cpu 1 --cpu-boost)
+fi
+if [[ "$PGVECTOR_ON" == 1 ]]; then
+  MCP_ENV="$MCP_ENV##VECTOR_STORE=pgvector##PGVECTOR_POOL=$PGVECTOR_POOL"
+  MCP_SECRETS="$MCP_SECRETS,PGVECTOR_URL=pa-pgvector-url:latest"
+fi
 say "MCP 서버 배포: $MCP_SERVICE"
 gcloud run deploy "$MCP_SERVICE" --image "$IMAGE" --region "$REGION" --quiet \
-  --allow-unauthenticated --port 8080 --memory 1Gi --cpu 1 \
+  --allow-unauthenticated --port 8080 "${MCP_RES[@]}" \
   --min-instances 0 --max-instances 2 --timeout 300 \
-  --set-env-vars "MCP_REQUIRE_AUTH=1" \
-  --set-secrets "MCP_AUTH_TOKEN=pa-mcp-auth-token:latest" \
+  --set-env-vars "^##^$MCP_ENV" \
+  --set-secrets "$MCP_SECRETS" \
   --command sh \
   --args "^##^-c##python -m src.preflight --role mcp && exec python -m src.mcp_server.server --transport http --host 0.0.0.0 --port 8080"
 MCP_URL="$(gcloud run services describe "$MCP_SERVICE" --region "$REGION" --format='value(status.url)')"
@@ -212,6 +260,8 @@ echo "   운영 계기판: $API_URL/dashboard"
 echo "   MCP 서버  : $MCP_URL/mcp"
 echo "   로그인    : $([[ $LOGIN_ON == 1 ]] && echo '켜짐 (Google)' || echo '꺼짐')"
 echo "   모드      : $([[ $LLM_ON == 1 ]] && echo "LLM 모드 ($LLM_MODEL)" || echo '오프라인 모드')"
+echo "   임베더    : $([[ $WITH_ML == 1 ]] && echo '밀집임베딩 (e5, 이미지 포함)' || echo 'TF-IDF 폴백 (경량 이미지)')"
+echo "   벡터 스토어: $([[ $PGVECTOR_ON == 1 ]] && echo "pgvector (pa-pgvector-url, pool=$PGVECTOR_POOL)" || echo '인메모리 (부팅마다 재색인)')"
 if [[ "$LOGIN_ON" != 1 ]]; then
   echo
   echo " 다음 단계 — Google 로그인용 OAuth 클라이언트의 승인된 리디렉션 URI:"

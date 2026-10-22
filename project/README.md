@@ -85,7 +85,7 @@ flowchart TB
 | 핵심 역량 | 이 프로젝트에서 | 위치 |
 |---|---|---|
 | **RAG 최적화** | 구조 청킹, 하이브리드(밀집임베딩 e5+BM25 — TF-IDF 자동 폴백), 4신호 리랭킹+섹션 prior, 질의확장, 스윕/ablation 재현 | `src/rag/`, `eval/` |
-| **벡터 DB (pgvector)** | 스토어 교체형 설계 — 인메모리(기본) ↔ Postgres+pgvector 영속 스토어(`VECTOR_STORE=pgvector`): 부팅 시 텍스트 해시 기반 **증분 색인**(바뀐 청크만 재임베딩), 버전 필터(시행일·폐지본 구간)를 SQL pre-filter 로, HNSW 코사인 검색. SQL 필터 ↔ 파이썬 필터 동치·인메모리와 순위 동일성을 실 DB 테스트(CI 서비스 컨테이너)로 고정 | `src/rag/vectorstore.py`, `src/rag/versionfilter.py`, `tests/test_vectorstore.py` |
+| **벡터 DB (pgvector)** | 스토어 교체형 설계 — 인메모리(기본) ↔ Postgres+pgvector 영속 스토어(`VECTOR_STORE=pgvector`): 부팅 시 텍스트 해시 기반 **증분 색인**(바뀐 청크만 재임베딩), 버전 필터(시행일·폐지본 구간)를 SQL pre-filter 로, HNSW 코사인 검색. SQL 필터 ↔ 파이썬 필터 동치·인메모리와 순위 동일성을 실 DB 테스트(CI 서비스 컨테이너)로 고정, e5 실모델 평가 6종 수치도 인메모리와 동일 | `src/rag/vectorstore.py`, `src/rag/versionfilter.py`, `tests/test_vectorstore.py` |
 | **제약/바이오 도메인** | RA·PV 도메인 도구 — RA: 검색·마감·체크리스트 / PV: 트리아지→인과성→코딩(3계층)→ICSR 초안 + 라벨 22케이스 평가 | `src/ra/`, `src/pv/`, `eval/pv_eval.py` |
 | **개인정보 보호** | PII 비식별화 2겹(에이전트 입구+도구 계층) — 한글 직결·조사 표기까지 룩어라운드 경계 | `src/pv/redactor.py` |
 | **MCP / FastMCP** | Tools 7 + Resource + Prompt(3대 primitive), 독립 HTTP 서버(운영)/stdio(Claude Desktop) | `src/mcp_server/server.py` |
@@ -101,7 +101,7 @@ flowchart TB
 | **운영 계기판** | 검증 경고율(`warn_rate_checked`)·감사 로그를 `/health` 노출 | `src/observability.py` |
 | **모델 선택 실험** | 같은 정답셋·같은 검색 결과·같은 프롬프트로 모델 N개의 생성·도구 선택 단계를 비교(정확도·근거 충실도·출처·지연·비용·실패율, 결정론 지표와 심판 지표 분리) → 작업별 모델을 `config/models.json` 으로 설정화, 계기판에 현재 모델·비교 표 노출 | `eval/model_compare/`, `config/models.json` |
 | **실데이터 인제스트** | PDF→코퍼스 변환 경로(헤딩 휴리스틱+frontmatter, 상용 파서 교체 자리) | `scripts/ingest_pdf.py` |
-| **테스트/CI** | pytest 425케이스(불변식/fuzz 포함) + Actions(preflight+평가 6종 회귀) | `tests/`, 루트 `.github/workflows/ci.yml` |
+| **테스트/CI** | pytest 426케이스(불변식/fuzz 포함) + Actions(preflight+평가 6종 회귀) | `tests/`, 루트 `.github/workflows/ci.yml` |
 
 ## 5. 실행 방법
 
@@ -124,13 +124,14 @@ export VECTOR_STORE=pgvector PGVECTOR_URL=postgresql://rapv:rapv@127.0.0.1:5432/
 바뀌므로 영속화 대상이 아니다 — preflight 가 조합 오류를 기동 전에 거부). 검색 결과는 `PGVECTOR_POOL=0`
 (전수, 기본)에서 인메모리와 **순위·점수 동일**(테스트 고정)이고, 양수로 두면 HNSW 상위 n 후보만 받아
 코퍼스 크기와 무관한 질의 비용을 얻는 대신 풀 밖 후보의 벡터 점수를 풀 최솟값으로 채우는 근사가 들어간다
-(BM25·리랭킹은 한국어 토크나이즈 일관성 때문에 파이썬에 남긴다).
+(BM25·리랭킹은 한국어 토크나이즈 일관성 때문에 파이썬에 남긴다). Cloud Run 배포에서 켜는 방법과 콜드스타트
+실측은 `deploy/gcp/README.md` 4차 절에 있다.
 
 로그인 켜기(선택 · 공개 배포 시 필수): `GOOGLE_CLIENT_ID`·`GOOGLE_CLIENT_SECRET`·`SESSION_SECRET` 를 설정하면
 챗 UI·`/chat` 에 Google 로그인과 사용자별 하루 질문 상한(`DAILY_CHAT_LIMIT`, 기본 30)이 적용된다.
 설정 방법은 `.env.example` 의 '사용자 로그인' 절. 비워 두면 로그인 없이 로컬에서 그대로 동작한다.
 
-품질 확인: `.venv/bin/python -m src.preflight`(배포 전 점검) · `-m pytest`(425케이스) ·
+품질 확인: `.venv/bin/python -m src.preflight`(배포 전 점검) · `-m pytest`(426케이스) ·
 `-m eval.evaluate / sweep / faithfulness / pv_eval / verify_eval / plan_eval / robustness_eval`
 (평가 7종, 95% CI 병기). 키 필요 수동 3종: `-m eval.judge_eval`(LLM judge 실측) ·
 `-m eval.generate_eval_items`(평가셋 후보 생성 — 리뷰 게이트) ·

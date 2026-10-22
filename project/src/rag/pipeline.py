@@ -7,11 +7,12 @@
 """
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
 from .. import config
-from ..observability import flow
+from ..observability import flow, logger
 from .chunker import Chunk, chunk_documents
 from .embedder import get_embedder
 from .loader import load_documents
@@ -62,9 +63,12 @@ class RagPipeline:
         self.reg_dir = reg_dir or config.REG_DIR
         self.embedder_kind = embedder_kind or config.EMBEDDER_KIND
         self.vector_store_kind = vector_store or config.VECTOR_STORE
+        # 콜드스타트 분해용 — 밀집임베딩이면 여기서 torch 임포트·모델 로드가 일어난다
+        t0 = time.perf_counter()
         store = get_vector_store(
             get_embedder(self.embedder_kind), self.vector_store_kind, self.embedder_kind
         )
+        self.prep_ms = round((time.perf_counter() - t0) * 1000)
         self.retriever = HybridRetriever(
             store,
             alpha=config.HYBRID_ALPHA,
@@ -77,13 +81,36 @@ class RagPipeline:
         self.n_chunks = 0
 
     def build(self) -> "RagPipeline":
-        """인덱스 구축 (부팅 시 1회)."""
+        """인덱스 구축 (부팅 시 1회).
+
+        끝에 단계별 소요 시간을 INFO 한 줄로 남긴다 — Cloud Run 처럼 0대로 스케일되는
+        환경에서 콜드스타트가 어디에 쓰이는지(모델 로드 vs 임베딩/색인) 로그만으로
+        읽을 수 있게 하고, pgvector 증분 색인(재사용/신규 임베딩 수)의 효과를 같은 줄에서
+        확인한다.
+        """
+        t0 = time.perf_counter()
         docs = load_documents(self.reg_dir)
         chunks: list[Chunk] = chunk_documents(
             docs, config.CHUNK_SIZE, config.CHUNK_OVERLAP
         )
+        load_ms = round((time.perf_counter() - t0) * 1000)
+        t1 = time.perf_counter()
         self.retriever.index(chunks)
+        index_ms = round((time.perf_counter() - t1) * 1000)
         self.n_docs, self.n_chunks = len(docs), len(chunks)
+        self.build_ms = self.prep_ms + load_ms + index_ms
+        store = self.retriever.store
+        sync = getattr(store, "last_sync", None) or {}
+        sync_note = (
+            f" · 재사용 {sync.get('reused', 0)} · 신규/변경 임베딩 {sync.get('embedded', 0)}"
+            if sync else ""
+        )
+        logger.info(
+            "RAG 인덱스 구축: 문서 %d · 청크 %d · 임베더 %s · 스토어 %s%s · "
+            "모델로드 %dms · 로드/청킹 %dms · 색인 %dms · 합계 %dms",
+            self.n_docs, self.n_chunks, type(store.embedder).__name__, type(store).__name__,
+            sync_note, self.prep_ms, load_ms, index_ms, self.build_ms,
+        )
         return self
 
     def retrieve(
