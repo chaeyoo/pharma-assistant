@@ -6,6 +6,8 @@
 """
 from __future__ import annotations
 
+import asyncio
+import contextvars
 import json
 import logging
 import os
@@ -249,15 +251,48 @@ def record_verification(summary: dict) -> None:
     )
 
 
+# ---------------------------------------------------------------------------
+# 요청 단위 진행 이벤트 (UI 실시간 표시용)
+# ---------------------------------------------------------------------------
+# span 은 '끝난 뒤' trace 에 쌓이므로 UI 는 답변이 완성될 때까지 아무것도 못 본다.
+# 콜드스타트(검색 서버 연결 수십 초)·LLM 스텝처럼 긴 구간을 진행 중에 보여 주려고,
+# timed() 의 시작·종료를 요청별 큐로도 내보낸다. 큐는 ContextVar 라 동시 요청이
+# 섞이지 않고(flow 로그의 전역 카운터와 달리), 싱크가 없으면(테스트·CLI·/chat 동기
+# 경로) 완전한 no-op 이다. 이벤트는 span 과 같은 데이터(이름·kind·ms·마스킹 이후의
+# args)만 싣는다 — trace 의 PII 규율이 그대로 적용된다.
+_progress: contextvars.ContextVar[asyncio.Queue | None] = contextvars.ContextVar(
+    "rapv_progress", default=None
+)
+
+
+def progress_emit(event: dict) -> None:
+    """현재 요청의 진행 큐에 이벤트를 넣는다. 싱크가 없으면 아무것도 하지 않는다."""
+    q = _progress.get()
+    if q is not None:
+        q.put_nowait(event)
+
+
+@contextmanager
+def progress_scope(queue: asyncio.Queue):
+    """이 블록(과 블록 안에서 만든 asyncio task)의 timed() 이벤트를 queue 로 보낸다."""
+    token = _progress.set(queue)
+    try:
+        yield
+    finally:
+        _progress.reset(token)
+
+
 @contextmanager
 def timed(trace: Trace, name: str, kind: str, detail: dict | None = None):
     """with 블록의 실행시간을 측정해 trace에 span으로 기록하고 구조화 로그를 남긴다.
 
     블록에서 예외가 나도 span(ok=False)을 남긴 뒤 예외를 다시 던진다.
+    진행 싱크가 있으면 시작·종료 이벤트도 내보낸다(progress_scope 참고).
     """
     t0 = time.perf_counter()
     ok = True
     err_name = ""
+    progress_emit({"type": "start", "name": name, "kind": kind, **(detail or {})})
     try:
         yield
     except Exception as e:  # noqa: BLE001 - 관측 목적상 모든 예외 기록 후 재전파
@@ -270,6 +305,7 @@ def timed(trace: Trace, name: str, kind: str, detail: dict | None = None):
         if err_name:
             d["error"] = err_name
         trace.add(Span(name=name, kind=kind, duration_ms=dt, ok=ok, detail=d))
+        progress_emit({"type": "end", "name": name, "kind": kind, "ms": round(dt, 2), "ok": ok, **d})
         logger.info(
             "span " + json.dumps({"name": name, "kind": kind, "ms": round(dt, 2), "ok": ok, **d}, ensure_ascii=False)
         )

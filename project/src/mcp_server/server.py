@@ -553,9 +553,32 @@ if __name__ == "__main__":
     parser.add_argument("--transport", choices=["stdio", "http"], default="stdio")
     parser.add_argument("--host", default="0.0.0.0")
     parser.add_argument("--port", type=int, default=8001)
+    parser.add_argument(
+        "--preflight", action="store_true",
+        help="기동 전 점검(role=mcp)을 이 프로세스 안에서 실행 — 실패하면 서버를 띄우지 않는다. "
+             "별도 프로세스(`python -m src.preflight --role mcp && …`)와 판정은 같고, 스모크가 만든 "
+             "RAG 인덱스·임베딩 모델을 서버가 물려받아 콜드스타트의 모델 로드가 1회로 준다.",
+    )
     args = parser.parse_args()
 
-    _get_pipeline()  # 인덱스 미리 구축 (헬스체크가 준비 완료 후에만 200 을 주도록)
+    if args.preflight:
+        import sys
+
+        from ..preflight import run_and_report
+
+        rc = run_and_report("mcp")
+        if rc != 0:
+            sys.exit(rc)
+        # `python -m src.mcp_server.server` 로 실행되면 이 파일은 `__main__` 이고, preflight 의
+        # 스모크가 `from .mcp_server.server import _get_pipeline` 로 쓴 것은 별개 모듈 객체다
+        # (같은 파일의 이중 import). 그쪽 `_pipeline` 을 넘겨받지 않으면 아래 `_get_pipeline()` 이
+        # 인덱스를 한 번 더 구축한다(실측: 로그에 'RAG 인덱스 구축' 2줄) — 이중 로드 제거의 요점이
+        # 바로 이 한 줄이다.
+        from . import server as _imported
+
+        if _imported is not sys.modules[__name__] and _imported._pipeline is not None:
+            _pipeline = _imported._pipeline
+    _get_pipeline()  # 인덱스 미리 구축 (헬스체크가 준비 완료 후에만 200 을 주도록) — preflight 를 거쳤으면 즉시 반환
     if args.transport == "http":
         # allowed_hosts=["*"]: fastmcp 의 Host 헤더 가드는 기본이 loopback 전용이라
         # compose/Render 내부 호스트명(예: mcp:8001)의 요청이 421 로 거절된다.

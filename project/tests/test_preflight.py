@@ -387,3 +387,20 @@ def test_corpus_check_catches_mid_chain_date_inversion(tmp_path):
                                    "effective_date": "2022-01-01"})  # 중간 링크 역전
     problems = preflight.check_corpus(tmp_path)
     assert any("늦지 않다" in p for p in problems)
+
+
+def test_run_and_report_inprocess_hands_pipeline_to_server(capsys):
+    """인프로세스 preflight(server.py --preflight) — 스모크가 만든 RAG 인덱스를 서버가 물려받는다.
+
+    배경: Cloud Run 에서 preflight 와 서버를 별도 프로세스로 띄우면 임베딩 모델을 두 번
+    로드해 콜드스타트가 ~20s 길어졌다(실측). 같은 프로세스에서 돌리면 스모크가 채운
+    `server._pipeline` 이 그대로 서버의 인덱스가 된다 — 그 '동일 객체' 계약을 고정한다.
+    보고 출력(결과: 통과)과 종료 코드 0 도 CLI 와 같아야 한다."""
+    from src.mcp_server import server
+
+    rc = preflight.run_and_report("mcp")
+    out = capsys.readouterr().out
+    assert rc == 0, out
+    assert "결과: 통과" in out and "role=mcp" in out
+    assert server._pipeline is not None
+    assert server._get_pipeline() is server._pipeline  # 재구축 없음 — 인덱스 1회 구축 보장

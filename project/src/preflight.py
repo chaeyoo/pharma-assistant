@@ -795,18 +795,16 @@ def run_preflight(role: str = "all") -> dict[str, list[str]]:
     return checks
 
 
-def main() -> int:
-    import argparse
+def run_and_report(role: str = "all") -> int:
+    """점검을 실행하고 사람이 읽는 보고를 출력한 뒤 종료 코드를 돌려준다(0=통과).
 
-    parser = argparse.ArgumentParser(description="배포 전 점검(preflight)")
-    parser.add_argument(
-        "--role", choices=["all", "api", "mcp"], default="all",
-        help="점검 롤 — all(기본: 전 그룹) | mcp(코퍼스·스모크) | api(업무 데이터·MCP 연결)",
-    )
-    args = parser.parse_args()
-
+    CLI(`python -m src.preflight`)와 MCP 서버의 인프로세스 게이트(`server.py --preflight`)가
+    같은 출력·같은 판정을 쓴다. 인프로세스로 돌리면 스모크가 채운 RAG 인덱스
+    (`server._pipeline`)와 lru_cache 된 임베딩 모델을 서버가 그대로 물려받아,
+    별도 프로세스 기동 때 두 번 들던 모델 로드(Cloud Run 1 vCPU 에서 ~20s)가 한 번으로 준다.
+    """
     print("=" * 60)
-    print(f"배포 전 점검 (preflight, role={args.role}) — 데이터·설정·스모크·게이트 자가 테스트")
+    print(f"배포 전 점검 (preflight, role={role}) — 데이터·설정·스모크·게이트 자가 테스트")
     print("=" * 60)
     # auto 는 환경에 따라 dense/tfidf 로 갈리므로 '실제로 무엇이 잡혔는지'를 명시한다
     # (폴백이 조용히 지나가면 dense 라고 믿은 배포가 tfidf 로 돌 수 있다).
@@ -817,7 +815,7 @@ def main() -> int:
     except Exception as e:
         resolved = f"로드 실패({type(e).__name__})"
     print(f"임베더: EMBEDDER_KIND={config.EMBEDDER_KIND} → {resolved} · 벡터 스토어: {config.VECTOR_STORE}")
-    report = run_preflight(role=args.role)
+    report = run_preflight(role=role)
     n_problems = 0
     for group, problems in report.items():
         mark = "✓" if not problems else "✗"
@@ -831,6 +829,18 @@ def main() -> int:
         return 1
     print("결과: 통과 — 배포 가능.")
     return 0
+
+
+def main() -> int:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="배포 전 점검(preflight)")
+    parser.add_argument(
+        "--role", choices=["all", "api", "mcp"], default="all",
+        help="점검 롤 — all(기본: 전 그룹) | mcp(코퍼스·스모크) | api(업무 데이터·MCP 연결)",
+    )
+    args = parser.parse_args()
+    return run_and_report(args.role)
 
 
 if __name__ == "__main__":
