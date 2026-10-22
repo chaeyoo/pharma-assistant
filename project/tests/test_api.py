@@ -57,3 +57,50 @@ def test_app_boots_and_serves_endpoints():
         assert r_chat.status_code == 200
         chat = r_chat.json()
         assert chat.get("answer") and "citations" in chat and "verification" in chat
+
+
+def _sse_events(resp) -> list[dict]:
+    import json as _json
+
+    events = []
+    for line in resp.iter_lines():
+        if line.startswith("data: "):
+            events.append(_json.loads(line[6:]))
+    return events
+
+
+def test_chat_stream_emits_steps_then_result():
+    """POST /chat/stream — 진행 단계(start/end)가 흘러나온 뒤 /chat 과 같은 모양의 result 로 끝난다.
+
+    UI 가 실시간 단계를 그리는 계약: 도구 호출(kind=tool)의 start 와 end 가 모두 있고,
+    검색 서버 연결(mcp.connect)이 가장 먼저 시작되며(콜드스타트 표시의 근거), 마지막
+    이벤트는 type=result 이고 /chat 응답과 같은 키(answer·citations·verification)를 가진다."""
+    with TestClient(app) as client:
+        with client.stream("POST", "/chat/stream", json={"message": "중대한 이상사례는 며칠 안에 보고?"}) as r:
+            assert r.status_code == 200
+            assert r.headers["content-type"].startswith("text/event-stream")
+            events = _sse_events(r)
+    assert events, "이벤트가 하나도 없다"
+    assert events[-1]["type"] == "result"
+    res = events[-1]
+    assert res.get("answer") and "citations" in res and "verification" in res
+    kinds = [(e["type"], e.get("kind"), e.get("name")) for e in events[:-1]]
+    assert kinds[0] == ("start", "agent", "chat")  # 요청 전체 span — UI 는 이 kind 를 생략한다
+    steps = [k for k in kinds if k[1] != "agent"]
+    assert steps[0] == ("start", "pipeline", "mcp.connect")
+    assert any(t == "start" and k == "tool" for t, k, _ in kinds)
+    assert any(t == "end" and k == "tool" for t, k, _ in kinds)
+    assert any(n == "verify" and t == "end" for t, _, n in kinds)
+    # 동기 /chat 과 같은 답을 준다(경로만 다를 뿐 처리는 동일)
+    sync = client.post("/chat", json={"message": "중대한 이상사례는 며칠 안에 보고?"}).json()
+    assert sync["answer"] == res["answer"]
+
+
+def test_warmup_reports_mcp_ready():
+    """GET /warmup — 검색 서버가 떠 있으면 ok 와 소요 ms 를 준다(페이지 로드 시 예열 호출의 계약)."""
+    with TestClient(app) as client:
+        r = client.get("/warmup")
+        assert r.status_code == 200
+        body = r.json()
+        assert body["status"] == "ok" and isinstance(body["ms"], int)
+        assert body["rag"]["chunks"] > 0

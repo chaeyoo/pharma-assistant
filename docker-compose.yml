@@ -9,7 +9,7 @@
 services:
   mcp:
     build: ./project
-    command: sh -c "python -m src.preflight --role mcp && exec python -m src.mcp_server.server --transport http --host 0.0.0.0 --port 8001"
+    command: python -m src.mcp_server.server --preflight --transport http --host 0.0.0.0 --port 8001
     environment:
       - MCP_AUTH_TOKEN=${MCP_AUTH_TOKEN:-}         # 비우면 무인증(내부 전용이라 안전)
     expose:
@@ -21,7 +21,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-      start_period: 60s   # preflight(--role mcp) + RAG 인덱스 구축 시간
+      start_period: 60s   # 인프로세스 preflight(--preflight, 스모크가 RAG 인덱스까지 구축) 시간
   api:
     build: ./project
     command: sh -c "python -m src.preflight --role api && exec uvicorn src.api.main:app --host 0.0.0.0 --port 8000"

@@ -202,7 +202,8 @@ done
 
 # ---------------------------------------------------------------- 6. MCP 서버
 # 도구 서버. 외부 MCP 클라이언트도 붙을 수 있게 공개 URL 이지만 Bearer 토큰이 필수이고,
-# 토큰이 비면 preflight 가 기동을 거부한다(MCP_REQUIRE_AUTH=1).
+# 토큰이 비면 preflight 가 기동을 거부한다(MCP_REQUIRE_AUTH=1). preflight 는 서버 프로세스 안에서
+# 돈다(--preflight) — 별도 프로세스로 돌리면 임베딩 모델을 두 번 로드해 콜드스타트가 ~20s 길어진다.
 # 4차: 밀집임베딩이면 torch+e5 로딩 몫으로 메모리 2GiB, 콜드스타트 단축용 CPU 부스트.
 # --set-env-vars/--set-secrets 는 전체 교체라 WITH_ML=0 으로 재실행하면 그대로 원복된다.
 MCP_ENV="MCP_REQUIRE_AUTH=1"
@@ -223,7 +224,7 @@ gcloud run deploy "$MCP_SERVICE" --image "$IMAGE" --region "$REGION" --quiet \
   --set-env-vars "^##^$MCP_ENV" \
   --set-secrets "$MCP_SECRETS" \
   --command sh \
-  --args "^##^-c##python -m src.preflight --role mcp && exec python -m src.mcp_server.server --transport http --host 0.0.0.0 --port 8080"
+  --args "^##^-c##exec python -m src.mcp_server.server --preflight --transport http --host 0.0.0.0 --port 8080"
 MCP_URL="$(gcloud run services describe "$MCP_SERVICE" --region "$REGION" --format='value(status.url)')"
 
 # ---------------------------------------------------------------- 7. API + 챗 UI

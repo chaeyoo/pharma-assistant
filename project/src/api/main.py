@@ -4,6 +4,8 @@
   GET  /            → 웹 챗 UI (single page)
   GET  /health      → 실행 모드/MCP 서버·인덱스 상태 + 검증 게이트 경고율 계기판
   POST /chat        → 사용자 메시지 → 에이전트 응답(+도구호출·출처)
+  POST /chat/stream → 같은 처리를 SSE 로 — 진행 단계(검색 서버 연결·도구·답변 생성·검증) 실시간 + 마지막 result
+  GET  /warmup      → 검색 서버(MCP) 예열 — 챗 페이지 로드 시 호출해 콜드스타트를 타이핑 시간 뒤로 숨긴다
   GET  /api/deadlines → 대시보드용 마감일 (부가)
   GET  /dashboard   → 운영 계기판 — /health 를 폴링해 경고율·축별 분해를 그리는 화면
   GET  /model-compare/report → 모델 비교 실험 보고서(eval/model_compare/REPORT.md) 원문
@@ -20,12 +22,14 @@
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import secrets
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from starlette.middleware.sessions import SessionMiddleware
 from pydantic import BaseModel, Field
 
@@ -33,7 +37,7 @@ import httpx
 
 from .. import config
 from ..agent.agent import RaAgent
-from ..observability import flow, flow_reset, gate_stats
+from ..observability import flow, flow_reset, gate_stats, progress_scope
 from ..ra.tasks import load_ra_tasks
 from . import auth
 
@@ -178,6 +182,11 @@ async def chat(req: ChatRequest, user: dict = Depends(auth.require_user)) -> Cha
         mode=result.mode, grounded=result.grounded,
         citations=len(result.citations), latency_ms=result.latency_ms,
     )
+    return _to_chat_response(result, remaining)
+
+
+def _to_chat_response(result, remaining: int | None) -> ChatResponse:
+    """AgentResult → ChatResponse. /chat(동기)과 /chat/stream(마지막 이벤트)이 같은 모양을 쓴다."""
     return ChatResponse(
         answer=result.answer,
         mode=result.mode,
@@ -194,6 +203,88 @@ async def chat(req: ChatRequest, user: dict = Depends(auth.require_user)) -> Cha
         web_results=result.web_results,
         remaining_today=remaining,
     )
+
+
+@app.post("/chat/stream")
+async def chat_stream(req: ChatRequest, user: dict = Depends(auth.require_user)) -> StreamingResponse:
+    """/chat 과 같은 처리를 하되 진행 단계를 SSE 로 흘려보낸다.
+
+    이벤트(`data: {json}`)는 observability.timed() 가 내보내는 start/end(이름·kind·ms)와
+    _finalize 의 verify 단계이고, 마지막 이벤트 `{"type":"result", ...}` 가 /chat 의 JSON 과
+    같은 본문이다. 오류는 `{"type":"error"}` 로 끝난다. 인증·쿼터는 /chat 과 동일하며
+    스트림이 열리기 전에 판정되므로 401/429 는 HTTP 상태 그대로 나간다.
+
+    왜 별도 엔드포인트인가: 검색 서버(MCP)가 콜드스타트 중이면 첫 질문이 연결에서 수십 초
+    걸린다 — 동기 /chat 은 그동안 아무 신호도 못 주지만, 여기서는 'mcp.connect' 시작
+    이벤트가 즉시 나가 UI 가 '검색 서버 깨우는 중'을 보여 줄 수 있다.
+    """
+    remaining = auth.consume_chat_quota(user)
+    flow_reset()
+    flow(
+        "chat_stream()",
+        "HTTP 진입점(SSE) — UI 의 POST /chat/stream 수신. 진행 이벤트를 흘리며 agent.chat() 을 수행",
+        message_len=len(req.message), history_turns=len(req.history), user=user.get("email"),
+        next="agent.chat() 을 task 로 띄우고 timed() 이벤트 큐를 소비해 data: 라인으로 전송",
+    )
+    queue: asyncio.Queue = asyncio.Queue()
+    _DONE = object()
+
+    async def _run():
+        try:
+            result = await agent.chat(req.message, req.history)
+            payload = _to_chat_response(result, remaining).model_dump()
+            queue.put_nowait({"type": "result", **payload})
+        except Exception as e:  # noqa: BLE001 - 스트림은 HTTP 500 을 못 쓰므로 이벤트로 알린다
+            queue.put_nowait({"type": "error", "message": f"서버 오류 ({type(e).__name__})"})
+        finally:
+            queue.put_nowait(_DONE)
+
+    with progress_scope(queue):
+        task = asyncio.create_task(_run())  # ContextVar 는 task 생성 시점에 복사된다
+
+    async def _events():
+        try:
+            while True:
+                ev = await queue.get()
+                if ev is _DONE:
+                    break
+                yield "data: " + json.dumps(ev, ensure_ascii=False, default=str) + "\n\n"
+        finally:
+            if not task.done():
+                task.cancel()
+
+    return StreamingResponse(
+        _events(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+    )
+
+
+@app.get("/warmup")
+async def warmup() -> JSONResponse:
+    """검색 서버(MCP)를 미리 깨운다 — 챗 페이지가 열리는 순간 호출한다.
+
+    Cloud Run 의 MCP 인스턴스는 요청이 없으면 0대로 내려가고, 다음 요청이 콜드스타트
+    (모델 로드·색인, 수십 초)를 유발한다. 사용자가 질문을 읽고 타이핑하는 동안 그 비용을
+    미리 치르게 하려고, /health 의 3초 제한 대신 긴 제한으로 MCP /health 가 200 을 줄 때까지
+    기다렸다가 소요 시간을 돌려준다. 이미 떠 있으면 즉시 ok. 과금은 어차피 첫 질문이
+    유발했을 기동을 앞당기는 것이라 추가 비용이 없다.
+    """
+    t0 = time.perf_counter()
+    info = await _mcp_status()
+    if info.get("status") != "ok":
+        try:
+            async with httpx.AsyncClient(timeout=120.0) as client:
+                r = await client.get(config.MCP_SERVER_HEALTH_URL)
+                r.raise_for_status()
+                info = r.json()
+        except Exception as e:  # noqa: BLE001 - 도달 불가는 상태로 표현
+            info = {"status": "unreachable", "error": type(e).__name__}
+    return JSONResponse({
+        "status": info.get("status", "unreachable"),
+        "ms": round((time.perf_counter() - t0) * 1000),
+        "rag": info.get("rag"),
+    })
 
 
 @app.get("/api/deadlines")

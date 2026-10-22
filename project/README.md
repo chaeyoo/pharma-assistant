@@ -131,6 +131,8 @@ export VECTOR_STORE=pgvector PGVECTOR_URL=postgresql://rapv:rapv@127.0.0.1:5432/
 챗 UI·`/chat` 에 Google 로그인과 사용자별 하루 질문 상한(`DAILY_CHAT_LIMIT`, 기본 30)이 적용된다.
 설정 방법은 `.env.example` 의 '사용자 로그인' 절. 비워 두면 로그인 없이 로컬에서 그대로 동작한다.
 
+**콜드스타트 체감(챗 UI).** 챗 페이지는 열리는 순간 `GET /warmup` 으로 검색 서버(MCP)를 미리 깨우고 상단에 "검색 서버 준비 중 → 준비됨(N s)" 을 보여 준다 — Cloud Run 처럼 요청이 없으면 0대로 내려가는 배포에서 모델 로드·색인(수십 초)을 사용자가 질문을 타이핑하는 시간 뒤로 숨긴다. 질문은 `POST /chat/stream`(SSE)로 보내 "검색 서버 연결 → 규정 검색 → 답변 생성 → 수치·날짜 검증" 단계를 진행 중에 실시간으로 그리고, 답변 뒤에는 단계별 ms 타임라인을 접어 남긴다(`observability.timed()` 의 span 이 그대로 이벤트가 된다 — 백엔드 3종·오프라인 모드 공통). 동기 `POST /chat` 은 그대로 유지한다(API 호환·폴백). MCP 컨테이너는 preflight 를 서버 프로세스 안에서 돌려(`--preflight`) 임베딩 모델을 한 번만 로드한다.
+
 품질 확인: `.venv/bin/python -m src.preflight`(배포 전 점검) · `-m pytest`(426케이스) ·
 `-m eval.evaluate / sweep / faithfulness / pv_eval / verify_eval / plan_eval / robustness_eval`
 (평가 7종, 95% CI 병기). 키 필요 수동 3종: `-m eval.judge_eval`(LLM judge 실측) ·

@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -259,8 +260,11 @@ async def chat_llm_langgraph(message: str, history: list[dict], trace: Trace) ->
 
         model = _build_model()
         # 호출마다 클라이언트를 새로 연다 — direct 백엔드와 동형(세션 공유 없음).
-        async with _mcp_client() as client:
-            tools = _make_tools(client, await client.list_tools(), deps)
+        async with AsyncExitStack() as stack:
+            # 연결·도구 목록을 span 으로(direct 백엔드와 동형) — 콜드스타트 구간이 UI 에 보인다.
+            with timed(trace, "mcp.connect", "pipeline"):
+                client = await stack.enter_async_context(_mcp_client())
+                tools = _make_tools(client, await client.list_tools(), deps)
             graph = _build_graph(model, tools)
             msgs = [
                 SystemMessage(content=SYSTEM_PROMPT),

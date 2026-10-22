@@ -12,6 +12,8 @@
 """
 from __future__ import annotations
 
+import time
+
 import re
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field
@@ -20,7 +22,7 @@ from typing import Any
 from fastmcp import Client
 
 from .. import config
-from ..observability import Trace, flow, record_verification, timed
+from ..observability import Trace, flow, record_verification, timed, progress_emit
 from ..pv.coding import symptom_keywords
 from ..pv.redactor import redact
 from ..rag.synonyms import expand_query
@@ -288,6 +290,9 @@ def _finalize(
             "\n\n🌐 이 답변에는 인터넷 검색 결과가 사용되었습니다 — 사내 규제문서 "
             "근거가 아니므로, 하단 '인터넷 검색 출처' 목록의 원문을 반드시 확인하세요."
         )
+    # 진행 이벤트만 내보낸다(trace 는 호출자 소유라 여기엔 없다) — UI 가 '수치 검증 중'을 보여 준다.
+    progress_emit({"type": "start", "name": "verify", "kind": "pipeline"})
+    _t0 = time.perf_counter()
     v = verify_answer(
         result.answer,
         trusted_texts,
@@ -301,6 +306,7 @@ def _finalize(
         # (검증은 계속 돌고) 사내 규정 근거로 승격되지도 않는다.
         web_texts=web_texts,
     )
+    progress_emit({"type": "end", "name": "verify", "kind": "pipeline", "ms": round((time.perf_counter() - _t0) * 1000, 2), "ok": True})
     flow(
         "_finalize()",
         "사후 검증 게이트 — 답변 속 수치·날짜·방향·인용 버전을 신뢰 소스(도구 출력)와 대조. "
@@ -441,11 +447,14 @@ class RaAgent:
         # 시절과 transport 만 다르다(완전 분리).
         async with AsyncExitStack() as stack:
             try:
-                mcp_client = await stack.enter_async_context(_mcp_client())
-                # 도구 7종의 이름·설명(docstring)·입력 스키마를 Anthropic tools
-                # 포맷으로 변환. 이 '설명'이 Claude 가 어떤 도구를 쓸지 판단하는
-                # 유일한 근거다.
-                tools = _to_anthropic_tools(await mcp_client.list_tools())
+                # 연결·도구 목록을 span 으로 — 검색 서버가 콜드스타트(0대→기동) 중이면
+                # 여기서 수십 초가 들고, UI 는 이 span 으로 '서버 깨우는 중'을 보여 준다.
+                with timed(trace, "mcp.connect", "pipeline"):
+                    mcp_client = await stack.enter_async_context(_mcp_client())
+                    # 도구 7종의 이름·설명(docstring)·입력 스키마를 Anthropic tools
+                    # 포맷으로 변환. 이 '설명'이 Claude 가 어떤 도구를 쓸지 판단하는
+                    # 유일한 근거다.
+                    tools = _to_anthropic_tools(await mcp_client.list_tools())
                 if not web_requested:
                     # 인터넷 검색은 명시 요청 턴에만 노출 — 미요청 턴에는 모델이
                     # 선택할 수조차 없다(사내 문서 abstention 이 웹 폴백으로
@@ -702,7 +711,8 @@ class RaAgent:
         async with AsyncExitStack() as stack:
             try:
                 # LLM 모드와 동일한 HTTP 연결 — 오프라인 모드도 도구는 MCP 서버를 거친다.
-                mcp_client = await stack.enter_async_context(_mcp_client())
+                with timed(trace, "mcp.connect", "pipeline"):
+                    mcp_client = await stack.enter_async_context(_mcp_client())
             except Exception as e:  # noqa: BLE001 - 연결 실패는 명시적 안내로 흡수
                 return _finalize(
                     AgentResult(

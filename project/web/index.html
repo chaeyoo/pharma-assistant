@@ -41,6 +41,19 @@
   .badge { font-size: 16.5px; padding: 4.5px 13.5px; border-radius: 999px; border: 1px solid rgba(255,255,255,.35); color: #cfe0ed; }
   .badge.llm { color: #12310a; background: var(--brand-bright); border-color: var(--brand-bright); font-weight: 700; }
   .badge.offline { color: var(--brand-yellow); border-color: var(--brand-yellow); }
+  /* 검색 서버(MCP) 예열 상태 — 페이지를 열면 /warmup 으로 미리 깨운다(콜드스타트 숨기기) */
+  .badge.warm { color: #cfe0ed; border-color: rgba(255,255,255,.35); }
+  .badge.warm.ready { color: var(--brand-bright); border-color: var(--brand-bright); }
+  .badge.warm.down { color: var(--brand-red); border-color: var(--brand-red); }
+  /* 진행 단계(실시간) — /chat/stream 의 start/end 이벤트를 그린다 */
+  .steps { font-size: 17px; color: var(--muted); line-height: 1.7; }
+  .steps .step { display: flex; gap: 8px; align-items: baseline; }
+  .steps .step.run { color: var(--text); }
+  .steps .step .ms { opacity: .65; font-variant-numeric: tabular-nums; }
+  .steps .step .hint { opacity: .6; font-size: .9em; }
+  details.timeline { margin-top: 12px; border-top: 1px dashed var(--line); padding-top: 9px; font-size: 16px; color: var(--muted); }
+  details.timeline summary { cursor: pointer; }
+  details.timeline .steps { margin-top: 6px; font-size: 15px; }
   button.ghost { font-size: 18px; padding: 7.5px 18px; border-radius: 999px; cursor: pointer;
     background: transparent; border: 1px solid rgba(255,255,255,.35); color: #cfe0ed; }
   button.ghost:hover { border-color: #fff; color: #fff; }
@@ -106,6 +119,9 @@
     .meta { margin-top: 8px; gap: 6px; }
     .pill { font-size: 11.5px; padding: 2px 8px; }
     .trace, .cite { font-size: 12.5px; }
+    .steps { font-size: 13px; }
+    details.timeline { font-size: 12.5px; }
+    details.timeline .steps { font-size: 12px; }
     .trace { margin-top: 8px; }
     .trace .tool { padding: 2px 8px; }
     .cites { margin-top: 9px; padding-top: 7px; }
@@ -130,6 +146,7 @@
     </h1>
     <span class="hspace"></span>
     <span id="mode" class="badge">연결 중…</span>
+    <span id="warm" class="badge warm" hidden title="검색 서버(MCP)를 미리 깨웁니다 — 요청이 없으면 0대로 내려가 첫 질문에 콜드스타트가 끼기 때문">검색 서버 준비 중…</span>
     <button id="reset" class="ghost" aria-label="대화 초기화">새 대화</button>
     <span id="user" class="user" hidden><span id="userName"></span><span id="quota"></span><a href="/logout">로그아웃</a></span>
     <span class="info" tabindex="0" role="note" aria-label="서비스 정보">i<span class="tip">제약 규제업무(RA·PV) AI 어시스턴트 · RAG + MCP + Agent<span id="stats"></span></span></span>
@@ -205,6 +222,26 @@ fetch('/health').then(r => r.json()).then(h => {
   b.title = h.banner;
   if (h.rag) document.getElementById('stats').textContent = ` · 문서 ${h.rag.docs} · 청크 ${h.rag.chunks}`;
 }).catch(() => { document.getElementById('mode').textContent = '오프라인'; });
+
+// 검색 서버(MCP) 예열 — 페이지를 여는 순간 깨워서, 사용자가 질문을 읽고 타이핑하는
+// 동안 콜드스타트(모델 로드·색인, 수십 초)가 진행되게 한다. 전송은 막지 않는다:
+// 준비 전에 보내도 스트림의 '검색 서버 연결' 단계가 기다리는 이유를 보여 준다.
+(function warmup() {
+  const w = document.getElementById('warm');
+  w.hidden = false;
+  const t0 = performance.now();
+  fetch('/warmup').then(r => r.json()).then(h => {
+    const sec = ((performance.now() - t0) / 1000).toFixed(1);
+    if (h.status === 'ok') {
+      w.textContent = sec > 2 ? `검색 서버 준비됨 (${sec}s)` : '검색 서버 준비됨';
+      w.className = 'badge warm ready';
+      setTimeout(() => { w.hidden = true; }, 8000);
+    } else {
+      w.textContent = '검색 서버 응답 없음';
+      w.className = 'badge warm down';
+    }
+  }).catch(() => { w.textContent = '검색 서버 응답 없음'; w.className = 'badge warm down'; });
+})();
 
 function esc(s){ return (s||'').replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
 
@@ -297,6 +334,71 @@ function renderBot(bubble, data) {
 const history = [];
 let busy = false; // Enter 키는 sendBtn.disabled 를 무시하므로 별도 가드
 
+// 진행 단계 라벨 — 서버 이벤트 이름(span name)을 사람이 읽는 말로. 모르는 이름은 그대로.
+const TOOL_LABEL = {
+  search_regulations: '규정 검색', assess_adverse_event: '이상사례 판정', draft_ae_report: '보고서 초안 작성',
+  get_ra_deadlines: '마감일 조회', get_submission_checklist: '체크리스트 조회', search_web: '인터넷 검색',
+};
+function stepLabel(name) {
+  if (name === 'mcp.connect') return '검색 서버 연결';
+  if (name === 'verify') return '수치·날짜 검증';
+  if (name.startsWith('tool.')) { const t = name.slice(5); return TOOL_LABEL[t] || ('도구 ' + t); }
+  if (name.startsWith('llm.step')) return `답변 생성 (${parseInt(name.slice(8), 10) + 1}회차)`;
+  if (name.startsWith('llm.')) return '답변 생성';
+  return name;
+}
+function stepsHtml(steps) {
+  return '<div class="steps">' + steps.map(st => {
+    const icon = st.done ? (st.ok ? '✓' : '✗') : '⏳';
+    const ms = st.done && typeof st.ms === 'number' ? `<span class="ms">${Math.round(st.ms).toLocaleString()} ms</span>` : '';
+    const hint = (!st.done && st.name === 'mcp.connect') ? '<span class="hint">처음이면 최대 1분</span>' : '';
+    return `<div class="step${st.done ? '' : ' run'}">${icon} ${esc(st.label)} ${ms}${hint}</div>`;
+  }).join('') + '</div>';
+}
+// 사후 타임라인 — 스트림으로 모은 단계가 없으면(폴백 경로) 응답의 trace 로 만든다.
+function timelineHtml(steps, data) {
+  let list = steps;
+  if (!list.length && Array.isArray(data.trace)) {
+    list = data.trace.filter(sp => sp.kind !== 'agent')
+      .map(sp => ({ name: sp.name, label: stepLabel(sp.name), ms: sp.ms, ok: sp.ok !== false, done: true }));
+  }
+  if (!list.length) return '';
+  const total = (typeof data.latency_ms === 'number') ? ` · 총 ${Math.round(data.latency_ms).toLocaleString()} ms` : '';
+  return `<details class="timeline"><summary>⏱ 처리 단계 ${list.length}${total}</summary>${stepsHtml(list)}</details>`;
+}
+
+// 스트림 이벤트를 받아 말풍선의 진행 단계를 갱신한다. agent span(요청 전체)은 생략.
+function applyEvent(steps, ev) {
+  if (ev.kind === 'agent') return;
+  if (ev.type === 'start') {
+    steps.push({ name: ev.name, label: stepLabel(ev.name), done: false });
+  } else if (ev.type === 'end') {
+    let st = null;
+    for (let k = steps.length - 1; k >= 0; k--) if (steps[k].name === ev.name && !steps[k].done) { st = steps[k]; break; }
+    if (!st) { st = { name: ev.name, label: stepLabel(ev.name) }; steps.push(st); }
+    st.done = true; st.ms = ev.ms; st.ok = ev.ok !== false;
+  }
+}
+
+// POST+JSON 이라 EventSource 를 못 쓴다 — fetch 응답 본문을 읽어 SSE(data: 줄)를 직접 파싱한다.
+async function readSse(res, onEvent) {
+  const reader = res.body.getReader();
+  const dec = new TextDecoder();
+  let buf = '';
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    let k;
+    while ((k = buf.indexOf('\n\n')) !== -1) {
+      const block = buf.slice(0, k); buf = buf.slice(k + 2);
+      for (const line of block.split('\n')) {
+        if (line.startsWith('data: ')) { try { onEvent(JSON.parse(line.slice(6))); } catch (_) {} }
+      }
+    }
+  }
+}
+
 async function send() {
   const message = input.value.trim();
   if (!message || busy) return;
@@ -306,13 +408,22 @@ async function send() {
   chips.style.display = 'none';
   addMsg('user', message);
   const bubble = addMsg('bot', '');
-  bubble.innerHTML = '<span class="typing"><i></i><i></i><i></i></span>규제문서를 검색하고 있습니다…';
+  const typing = '<span class="typing"><i></i><i></i><i></i></span>';
+  bubble.innerHTML = typing + '규제문서를 검색하고 있습니다…';
   sendBtn.disabled = true;
+  const steps = [];
+  const body = JSON.stringify({ message, history });
+  const headers = { 'Content-Type': 'application/json' };
+  const finish = (data) => {
+    if (data.remaining_today !== null && data.remaining_today !== undefined) showQuota(data.remaining_today, dailyLimit);
+    renderBot(bubble, data);
+    bubble.insertAdjacentHTML('beforeend', timelineHtml(steps, data));
+    history.push({ role: 'user', content: message });
+    history.push({ role: 'assistant', content: data.answer });
+    while (history.length > 6) history.shift();
+  };
   try {
-    const res = await fetch('/chat', {
-      method: 'POST', headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({ message, history })
-    });
+    let res = await fetch('/chat/stream', { method: 'POST', headers, body });
     if (res.status === 401) { location.href = '/login'; return; }
     if (res.status === 429) {
       const err = await res.json().catch(() => ({}));
@@ -320,14 +431,24 @@ async function send() {
       showQuota(0, dailyLimit);
       return;
     }
+    if (res.ok && res.body && (res.headers.get('content-type') || '').includes('text/event-stream')) {
+      let result = null, error = null;
+      await readSse(res, ev => {
+        if (ev.type === 'result') { result = ev; return; }
+        if (ev.type === 'error') { error = ev.message; return; }
+        applyEvent(steps, ev);
+        const stick = nearBottom();
+        bubble.innerHTML = typing + stepsHtml(steps);
+        scrollDown(stick);
+      });
+      if (result) { finish(result); return; }
+      throw new Error(error || '응답이 끝나기 전에 연결이 끊겼습니다');
+    }
+    // 스트림을 못 쓰는 환경(프록시가 SSE 를 막는 경우 등) — 동기 /chat 로 1회 폴백
+    res = await fetch('/chat', { method: 'POST', headers, body });
+    if (res.status === 401) { location.href = '/login'; return; }
     if (!res.ok) throw new Error(`서버 오류 (HTTP ${res.status})`);
-    const data = await res.json();
-    if (data.remaining_today !== null && data.remaining_today !== undefined) showQuota(data.remaining_today, dailyLimit);
-    renderBot(bubble, data);
-    // 이력 갱신(최근 6턴만 유지)
-    history.push({ role: 'user', content: message });
-    history.push({ role: 'assistant', content: data.answer });
-    while (history.length > 6) history.shift();
+    finish(await res.json());
   } catch (e) {
     bubble.textContent = '오류가 발생했습니다: ' + (e.message || e);
   } finally {

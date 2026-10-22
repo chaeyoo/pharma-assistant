@@ -110,7 +110,11 @@ URL 은 `pa-pgvector-url` 시크릿에 저장되고, 이후 재실행은 `WITH_M
 
 Cloud Run 실측 읽는 법: 같은 대륙이라 증분 색인은 0.64s(해시 대조 + 메타 갱신의 DB 왕복)로 한국 접속의 3.9s 에서 내려왔고 "재사용 72 · 신규 0" 으로 영속화가 동작했다. 대신 **모델 로드가 31.6s** 로 로컬(Apple Silicon ~9s)의 3배 이상이다 — Cloud Run 의 1 vCPU 에서 torch 임포트 + e5 로드가 그만큼 느리고, preflight 프로세스가 한 번 더 로드하므로(preflight 의 build() 는 canary 가 먼저 로드해 0ms 로 찍힘) 컨테이너 시작→준비는 2분 안팎이다. Cloud Run 기본 기동 제한(240s) 안이지만 여유가 크지 않다. 결론은 로컬 실측과 같다 — 다음 병목은 pgvector 가 아니라 모델 로드다.
 
-**모델 로드 개선 1단계 — 허브 왕복 제거(코드 반영, 재배포 대기).** 로그에 preflight 시작 48초 뒤 "unauthenticated requests to the HF Hub" 경고가 찍혔다 — 모델을 이미지에 구워 넣었는데도 `EMBEDDER_KIND=dense` 가 `local_files_only=False` 라 기동마다 Hugging Face Hub 에 메타데이터를 조회한 것이다. ML 이미지에 `HF_HUB_OFFLINE=1` 을 고정하고 dense 모드도 받아둔 모델을 먼저 쓰도록 바꿨다. 로컬 실측: 허브 확인 포함 로드 6.0s → 1.3s, 임포트 포함 전체 10.7s → 4.9s. Cloud Run 수치는 재배포 뒤 위 표에 추가한다. 다음 후보는 (2) preflight 를 서버 프로세스 안에서 돌려 이중 로드 제거, (3) `--cpu 2`, (4) ONNX 백엔드 또는 외부 임베딩 API 로 torch 제거.
+**모델 로드 개선 1단계 — 허브 왕복 제거(코드 반영, 재배포 대기).** 로그에 preflight 시작 48초 뒤 "unauthenticated requests to the HF Hub" 경고가 찍혔다 — 모델을 이미지에 구워 넣었는데도 `EMBEDDER_KIND=dense` 가 `local_files_only=False` 라 기동마다 Hugging Face Hub 에 메타데이터를 조회한 것이다. ML 이미지에 `HF_HUB_OFFLINE=1` 을 고정하고 dense 모드도 받아둔 모델을 먼저 쓰도록 바꿨다. 로컬 실측: 허브 확인 포함 로드 6.0s → 1.3s, 임포트 포함 전체 10.7s → 4.9s. Cloud Run 수치는 재배포 뒤 위 표에 추가한다. 다음 후보는 (3) `--cpu 2`, (4) ONNX 백엔드 또는 외부 임베딩 API 로 torch 제거 — 둘 다 비용(과금·전환)이 있어 보류.
+
+**모델 로드 개선 2단계 — 이중 로드 제거(코드 반영, 재배포 대기).** 종전 기동 명령 `preflight --role mcp && server` 는 preflight 프로세스와 서버 프로세스가 각각 모델을 로드했다(로그에 `RAG 인덱스 구축:` 이 2줄). 이제 `server.py --preflight` 가 같은 점검을 서버 프로세스 안에서 돌리고, 스모크가 만든 인덱스(`server._pipeline`)와 lru_cache 된 모델을 서버가 그대로 물려받는다 — 로드 1회, 로그 1줄. 판정·출력은 CLI 와 같다(실패하면 서버를 띄우지 않음). 비용 0.
+
+**체감 개선 — 예열과 진행 표시(코드 반영).** 콜드스타트를 없애지 못하는 만큼, 사용자가 그 시간을 '기다리는 이유 없이' 보내지 않게 한다. 챗 페이지는 열리는 순간 `GET /warmup`(MCP /health 를 120s 제한으로 대기)으로 검색 서버를 깨우고 "검색 서버 준비 중 → 준비됨(N s)" 배지를 보여 준다 — 사용자가 예시 질문을 읽고 타이핑하는 동안 기동이 진행된다. 질문은 `POST /chat/stream`(SSE)으로 보내 "검색 서버 연결(콜드스타트면 여기서 수십 초) → 규정 검색 → 답변 생성 → 수치·날짜 검증" 을 실시간으로 그리고, 답변 뒤에는 단계별 ms 타임라인이 남는다. 과금 영향 없음(첫 질문이 유발했을 기동을 앞당길 뿐).
 
 읽는 법: 증분 색인은 임베딩 몫(~2.2초)을 통째로 없애고, 컨테이너 시작→준비는 약 4초 준다(preflight 와 서버 프로세스가 각각 인덱스를 구축해 인메모리는 임베딩이 두 번 든다). 남는 비용은 torch 임포트 + e5 로드(프로세스당 ~9초, 두 프로세스)라 다음 단계는 pgvector 가 아니라 모델 로드 쪽이다 — preflight 의 RAG 스모크를 mcp 롤에서 생략하거나, 임베딩 질의만 외부 API(`EMBEDDER_KIND=voyage`)로 넘겨 torch 를 이미지에서 빼는 선택지가 있다. 코퍼스가 커질수록(수천 청크) 임베딩 몫이 선형으로 늘어 pgvector 의 효과가 커진다.
 
