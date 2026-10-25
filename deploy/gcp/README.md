@@ -56,6 +56,16 @@ bash deploy/gcp/deploy.sh <PROJECT_ID>
 
 이후 `REQUIRE_LOGIN=1` 이 걸려, 로그인 설정이 빠진 배포는 preflight 가 기동을 거부한다.
 
+허용 목록은 한 번 넣으면 재실행 때 유지된다. OAuth 를 프로덕션으로 게시한 뒤 테스터 목록을 풀려면
+**빈 값을 명시**해서 재실행한다(안 주면 기존 값 유지). 목록이 비면 Google 계정이면 누구나 들어오므로,
+사내 계정만 열 때는 `ALLOWED_DOMAINS` 를 대신 둔다. 목록에 없는 계정은 로그인 화면에
+"이 계정은 아직 이용 권한이 없습니다" 로 막힌다(Google 쪽이 아니라 앱 쪽 거부).
+
+```bash
+ALLOWED_EMAILS= bash deploy/gcp/deploy.sh <PROJECT_ID>                      # 누구나
+ALLOWED_EMAILS= ALLOWED_DOMAINS=example.com bash deploy/gcp/deploy.sh <PROJECT_ID>   # 사내 도메인만
+```
+
 ### 3차 — LLM 모드
 
 ```bash
