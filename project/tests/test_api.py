@@ -52,6 +52,13 @@ def test_app_boots_and_serves_endpoints():
         assert "예제문100 빈칸 퀴즈" in r_blank.text
         assert r_blank.text.count("{{") >= 100  # 100문장 분량의 빈칸 마킹이 실려 있다
 
+        # 개인정보처리방침 — web/privacy.html 정적 서빙. Google OAuth 동의 화면이 링크하는
+        # 페이지라 로그인 전에도 열려야 한다(로그인 게이트가 붙으면 Google 측 링크가 깨진다).
+        r_priv = client.get("/privacy")
+        assert r_priv.status_code == 200
+        assert "개인정보처리방침" in r_priv.text
+        assert "openid" in r_priv.text and "email" in r_priv.text  # 실제 요청 스코프와 일치
+
         # 챗 — 오프라인 모드 근거 기반 답변
         r_chat = client.post("/chat", json={"message": "중대한 이상사례는 며칠 안에 보고?"})
         assert r_chat.status_code == 200
