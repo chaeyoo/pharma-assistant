@@ -791,7 +791,15 @@ def run_preflight(role: str = "all") -> dict[str, list[str]]:
         # 비활성(기본)이면 그룹 자체가 없다 — 키 없는 오프라인 부팅 무영향.
         checks["LLM judge 자가 테스트"] = check_judge()
     if role == "api":
-        checks["MCP 연결"] = check_mcp_reachable()
+        problems = check_mcp_reachable(timeout_s=config.MCP_WAIT_TIMEOUT_S)
+        if problems and config.MCP_WAIT_SOFT and "연결 실패" in problems[0]:
+            # soft 정책: '아직 안 떴다'는 기동을 막지 않는다 — 콜드스타트가 직렬로 쌓이는
+            # 배포에서 페이지를 먼저 내고 UI(/warmup)가 준비 상태를 보여 준다. 연결은
+            # 되는데 도구가 없는 버전 스큐는 위 조건에 안 걸려 그대로 기동 차단이다.
+            print(f"    ! MCP 연결 대기 {config.MCP_WAIT_TIMEOUT_S:g}s 초과 — soft 정책으로 기동 계속"
+                  f"(검색 서버 콜드스타트 중일 수 있음; /health·/warmup 이 이후 상태를 보인다): {problems[0]}")
+            problems = []
+        checks["MCP 연결"] = problems
     return checks
 
 
@@ -808,13 +816,19 @@ def run_and_report(role: str = "all") -> int:
     print("=" * 60)
     # auto 는 환경에 따라 dense/tfidf 로 갈리므로 '실제로 무엇이 잡혔는지'를 명시한다
     # (폴백이 조용히 지나가면 dense 라고 믿은 배포가 tfidf 로 돌 수 있다).
-    try:
-        from .rag.embedder import get_embedder
+    # 단, api 롤은 파이프라인을 소유하지 않으므로 임베더를 해석하지 않는다 — 해석 자체가
+    # 모델 로드(ML 이미지에선 e5, Cloud Run 1 vCPU 에서 수십 초)라, 검색을 하지 않는
+    # API 컨테이너의 콜드스타트에 그 비용이 통째로 얹혀 있었다(실측 ~2분의 한 조각).
+    if role == "api":
+        print(f"임베더: (api 롤 — 파이프라인 미소유, 모델 로드 생략) · 벡터 스토어: {config.VECTOR_STORE}")
+    else:
+        try:
+            from .rag.embedder import get_embedder
 
-        resolved = type(get_embedder(config.EMBEDDER_KIND)).__name__
-    except Exception as e:
-        resolved = f"로드 실패({type(e).__name__})"
-    print(f"임베더: EMBEDDER_KIND={config.EMBEDDER_KIND} → {resolved} · 벡터 스토어: {config.VECTOR_STORE}")
+            resolved = type(get_embedder(config.EMBEDDER_KIND)).__name__
+        except Exception as e:
+            resolved = f"로드 실패({type(e).__name__})"
+        print(f"임베더: EMBEDDER_KIND={config.EMBEDDER_KIND} → {resolved} · 벡터 스토어: {config.VECTOR_STORE}")
     report = run_preflight(role=role)
     n_problems = 0
     for group, problems in report.items():

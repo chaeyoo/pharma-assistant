@@ -404,3 +404,42 @@ def test_run_and_report_inprocess_hands_pipeline_to_server(capsys):
     assert "결과: 통과" in out and "role=mcp" in out
     assert server._pipeline is not None
     assert server._get_pipeline() is server._pipeline  # 재구축 없음 — 인덱스 1회 구축 보장
+
+
+def test_api_role_report_does_not_load_embedding_model(monkeypatch, capsys):
+    """api 롤 보고는 임베더를 해석하지 않는다 — 해석이 곧 모델 로드라 검색을 안 하는 API
+    컨테이너의 콜드스타트에 수십 초가 얹혔다(Cloud Run 실측). get_embedder 가 호출되면 실패."""
+    from src.rag import embedder as emb
+
+    def _boom(kind="auto"):
+        raise AssertionError("api 롤이 임베더를 해석했다")
+
+    monkeypatch.setattr(emb, "get_embedder", _boom)
+    rc = preflight.run_and_report("api")
+    out = capsys.readouterr().out
+    assert rc == 0, out
+    assert "모델 로드 생략" in out
+
+
+def test_api_role_soft_wait_boots_without_mcp_but_still_blocks_version_skew(monkeypatch):
+    """MCP_WAIT_SOFT: '아직 안 떴다'(연결 실패)는 기동을 막지 않지만, '연결은 되는데
+    기대 도구가 없다'(버전 스큐)는 soft 여도 여전히 막는다 — 계약 위반은 침묵 통과가 아니다."""
+    monkeypatch.setattr(config, "MCP_WAIT_SOFT", True)
+    monkeypatch.setattr(config, "MCP_WAIT_TIMEOUT_S", 0.05)
+    real = preflight.check_mcp_reachable  # 패치 전 원본 — 프로브만 바꿔 끼운다
+
+    def _cold():
+        raise ConnectionError("cold")
+
+    def unreachable(timeout_s, probe=None, poll_interval_s=2.0):
+        return real(timeout_s=timeout_s, probe=_cold, poll_interval_s=0.01)
+
+    monkeypatch.setattr(preflight, "check_mcp_reachable", unreachable)
+    assert preflight.run_preflight(role="api")["MCP 연결"] == []
+
+    def skewed(timeout_s, probe=None, poll_interval_s=2.0):
+        return real(timeout_s=timeout_s, probe=lambda: {"search_regulations"}, poll_interval_s=0.01)
+
+    monkeypatch.setattr(preflight, "check_mcp_reachable", skewed)
+    problems = preflight.run_preflight(role="api")["MCP 연결"]
+    assert problems and "도구 누락" in problems[0]
