@@ -231,7 +231,9 @@ MCP_URL="$(gcloud run services describe "$MCP_SERVICE" --region "$REGION" --form
 API_URL="$(gcloud run services describe "$API_SERVICE" --region "$REGION" --format='value(status.url)' 2>/dev/null || true)"
 API_URL="${API_URL:-https://$API_SERVICE-$PROJECT_NUMBER.$REGION.run.app}"
 
-ENV="MCP_SERVER_URL=$MCP_URL/mcp##AGENT_BACKEND=$AGENT_BACKEND##DAILY_CHAT_LIMIT=$DAILY_CHAT_LIMIT"
+# MCP 대기는 짧게·soft — Cloud Run 은 두 서비스가 함께 0대로 내려가므로 API 가 MCP 콜드스타트를
+# 직렬로 기다리면 첫 페이지까지 2분이 걸렸다(실측). 페이지를 먼저 내고 UI 의 /warmup 이 준비를 보여 준다.
+ENV="MCP_SERVER_URL=$MCP_URL/mcp##AGENT_BACKEND=$AGENT_BACKEND##DAILY_CHAT_LIMIT=$DAILY_CHAT_LIMIT##MCP_WAIT_TIMEOUT_S=5##MCP_WAIT_SOFT=1"
 SECRETS="MCP_AUTH_TOKEN=pa-mcp-auth-token:latest,SESSION_SECRET=pa-session-secret:latest"
 if [[ "$LOGIN_ON" == 1 ]]; then
   ENV="$ENV##GOOGLE_CLIENT_ID=$GOOGLE_CLIENT_ID##PUBLIC_BASE_URL=$API_URL##REQUIRE_LOGIN=1"

@@ -43,7 +43,7 @@ API 키 없이 RAG·PV·검증 전 기능이 도는 공개 데모. 끝에 출력
 
 ### 2차 — Google 로그인
 
-1. 콘솔 → **API 및 서비스 → OAuth 동의 화면**: 사용자 유형 *외부*, 앱 이름·지원 이메일 입력, 게시 상태는 *테스트*로 두고 **테스트 사용자**에 테스터 Gmail 을 추가한다.
+1. 콘솔 → **API 및 서비스 → OAuth 동의 화면**: 사용자 유형 *외부*, 앱 이름·지원 이메일 입력. 테스터 몇 명에게만 열 때는 게시 상태를 *테스트*로 두고 **테스트 사용자**에 Gmail 을 추가한다. **포트폴리오처럼 불특정 검토자가 로그인해야 하면 "앱 게시"로 *프로덕션* 전환** — 이 앱은 `openid email profile` 만 요청하므로(민감 범위 없음) Google 의 앱 검증 없이 바로 게시되고 '확인되지 않은 앱' 경고도 뜨지 않는다. 테스트 상태로 두면 미등록 계정은 "승인된 테스터만 접근 가능" 화면에서 막힌다. 공개 후의 비용 보호는 사용자별 일일 상한(`DAILY_CHAT_LIMIT`)과 Anthropic 콘솔의 월 한도.
 2. **API 및 서비스 → 사용자 인증 정보 → 사용자 인증 정보 만들기 → OAuth 클라이언트 ID**: 유형 *웹 애플리케이션*, **승인된 리디렉션 URI** 에 1차 끝에 출력된 주소를 그대로 넣는다.
 3. 발급된 클라이언트 ID·보안 비밀로 다시 실행:
 
@@ -120,6 +120,17 @@ Cloud Run 실측 읽는 법: 같은 대륙이라 증분 색인은 0.64s(해시 �
 
 읽는 법: 증분 색인은 임베딩 몫(~2.2초)을 통째로 없애고, 컨테이너 시작→준비는 약 4초 준다(preflight 와 서버 프로세스가 각각 인덱스를 구축해 인메모리는 임베딩이 두 번 든다). 남는 비용은 torch 임포트 + e5 로드(프로세스당 ~9초, 두 프로세스)라 다음 단계는 pgvector 가 아니라 모델 로드 쪽이다 — preflight 의 RAG 스모크를 mcp 롤에서 생략하거나, 임베딩 질의만 외부 API(`EMBEDDER_KIND=voyage`)로 넘겨 torch 를 이미지에서 빼는 선택지가 있다. 코퍼스가 커질수록(수천 청크) 임베딩 몫이 선형으로 늘어 pgvector 의 효과가 커진다.
 
+
+**API 컨테이너의 콜드스타트 — 첫 페이지까지 2분(2026-10-24 실측)의 분해와 제거.** 예열 배지는 페이지가 뜬 뒤에야 동작하므로, 페이지 자체가 늦게 뜨면 소용이 없다. 첫 방문 시 일어나던 일: ① `pharma-api` 인스턴스 기동(ML 이미지 공유) → ② api 의 preflight 가 '임베더 해석'을 출력하려고 **e5 모델을 로드**(검색을 안 하는 컨테이너에서 수십 초, 1GiB) → ③ preflight 가 MCP 준비를 **최대 60초 직렬 대기**(그제야 MCP 가 깨어나 16s 모델 로드) → ④ uvicorn 기동. 비용 0 으로 두 가지를 끊었다.
+- **A. api 롤은 모델을 로드하지 않는다** — `preflight.run_and_report` 가 api 롤에서는 임베더를 해석하지 않는다(② 삭제).
+- **B. MCP 대기를 짧게·soft 로** — api 서비스에 `MCP_WAIT_TIMEOUT_S=5 MCP_WAIT_SOFT=1`. 5초 안에 연결이 안 되면 경고만 남기고 기동해 페이지를 먼저 내고, UI 의 `/warmup` 이 "검색 서버 준비 중 → 준비됨"을 보여 준다(③ 삭제). 연결은 되는데 기대 도구가 없는 버전 스큐는 soft 여도 기동을 막는다(롤링 배포 보호 유지). 로컬·compose 는 기본값(60s, 차단) 그대로.
+- **C. 깨어 있게 유지(선택, 무료 한도 내)** — Cloud Scheduler 가 10분마다 `GET /warmup` 을 호출하면 두 인스턴스가 유휴 종료(약 15분) 전에 갱신되어 방문자가 콜드스타트를 거의 만나지 않는다. Scheduler 무료 3개 작업, Cloud Run 은 요청 처리 시간만 과금(호출당 수 ms)이라 사실상 0원. 유휴 인스턴스의 메모리는 요청 기반 과금에서 청구되지 않는다.
+  ```bash
+  gcloud services enable cloudscheduler.googleapis.com --project <PROJECT_ID>
+  gcloud scheduler jobs create http pharma-keepalive --project <PROJECT_ID> --location us-central1 \
+    --schedule "*/10 * * * *" --uri "https://<pharma-api URL>/warmup" --http-method GET --attempt-deadline 180s
+  ```
+  끄려면 `gcloud scheduler jobs pause pharma-keepalive --location us-central1`.
 
 ## 확인
 

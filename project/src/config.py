@@ -42,6 +42,16 @@ MCP_AUTH_TOKEN = os.environ.get("MCP_AUTH_TOKEN", "").strip()
 # 공개(web) 서비스에는 이 플래그를 함께 배포해, 나중에 토큰이 실수로 지워져도
 # 무인증 공개 상태로 조용히 돌아가지 않게 한다(fail-closed).
 MCP_REQUIRE_AUTH = os.environ.get("MCP_REQUIRE_AUTH", "").strip() in ("1", "true", "on")
+# API 컨테이너 기동 시 MCP 서버 대기 정책(preflight --role api).
+#   MCP_WAIT_TIMEOUT_S: 연결·도구 계약 충족을 기다리는 상한(초). 기본 60 — 롤링 배포의
+#     버전 스큐(새 API 가 구버전 MCP 를 보는 과도기)를 흡수한다.
+#   MCP_WAIT_SOFT: 켜면 상한 안에 '연결 자체'가 안 될 때 기동을 막지 않는다(경고만).
+#     Cloud Run 처럼 두 서비스가 모두 0대로 내려가는 배포에서, API 가 MCP 의 콜드스타트
+#     (모델 로드 수십 초)를 직렬로 기다린 뒤에야 페이지를 내던 것을 끊는다 — 페이지가
+#     먼저 뜨고 UI 의 /warmup 이 '검색 서버 준비 중 → 준비됨'을 보여 준다. 연결은 되는데
+#     기대 도구가 없는 경우(버전 스큐)는 soft 여도 여전히 기동을 막는다(계약 위반).
+MCP_WAIT_TIMEOUT_S = float(os.environ.get("MCP_WAIT_TIMEOUT_S", "60"))
+MCP_WAIT_SOFT = os.environ.get("MCP_WAIT_SOFT", "").strip() in ("1", "true", "on")
 
 # 사용자 로그인(Google OIDC) — GOOGLE_CLIENT_ID 가 있을 때만 켜진다(src/api/auth.py).
 # 비어 있으면 익명으로 통과해 로컬 개발·테스트 동작이 바뀌지 않는다.
