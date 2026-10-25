@@ -11,6 +11,7 @@
   GET  /model-compare/report → 모델 비교 실험 보고서(eval/model_compare/REPORT.md) 원문
   GET  /dictionary  → 용어 사전 플래시카드 (description/dictionary.html, self-contained)
   GET  /blank       → 예제문100 빈칸 퀴즈 (description/blank.html, self-contained)
+  GET  /privacy     → 개인정보처리방침 (web/privacy.html, 로그인 불필요 — Google OAuth 동의 화면 링크 대상)
   GET  /login · /auth/google · /auth/callback · /logout · /api/me → Google 로그인(src/api/auth.py)
 
 인증: GOOGLE_CLIENT_ID 가 설정되면 챗 UI·/chat·/api/deadlines·/dashboard 는 로그인이
@@ -331,6 +332,14 @@ async def dictionary() -> HTMLResponse:
     # dictionary.md 원문이 mdsrc 블록에 주입된 정적 단일 파일(외부 의존 없음).
     # 갱신은 description/build_dictionary_html.py 실행 후 재배포.
     html = config.DICTIONARY_HTML.read_text(encoding="utf-8")
+    return HTMLResponse(html)
+
+
+@app.get("/privacy", response_class=HTMLResponse, include_in_schema=False)
+async def privacy_policy() -> HTMLResponse:
+    # Google OAuth 동의 화면(브랜딩)의 개인정보처리방침 링크 대상 — 프로덕션 게시에 필수.
+    # 로그인 전에 읽는 문서이므로 로그인 게이트를 두지 않는다.
+    html = (config.WEB_DIR / "privacy.html").read_text(encoding="utf-8")
     return HTMLResponse(html)
 
 

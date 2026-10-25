@@ -147,8 +147,10 @@ for e in d['spec']['template']['spec']['containers'][0].get('env',[]):
     if e.get('name')=='$2' and 'value' in e: print(e['value'])"
 }
 GOOGLE_CLIENT_ID="${GOOGLE_CLIENT_ID:-$(current_env "$API_SERVICE" GOOGLE_CLIENT_ID)}"
-ALLOWED_EMAILS="${ALLOWED_EMAILS:-$(current_env "$API_SERVICE" ALLOWED_EMAILS)}"
-ALLOWED_DOMAINS="${ALLOWED_DOMAINS:-$(current_env "$API_SERVICE" ALLOWED_DOMAINS)}"
+# 허용 목록은 "안 줌"(기존 값 유지)과 "빈 값으로 줌"(목록 해제 → Google 계정 누구나)을 구분한다 —
+# OAuth 를 프로덕션으로 게시한 뒤 테스터 목록을 풀 때 ALLOWED_EMAILS= 로 재실행한다.
+[[ -z "${ALLOWED_EMAILS+x}"  ]] && ALLOWED_EMAILS="$(current_env "$API_SERVICE" ALLOWED_EMAILS)"
+[[ -z "${ALLOWED_DOMAINS+x}" ]] && ALLOWED_DOMAINS="$(current_env "$API_SERVICE" ALLOWED_DOMAINS)"
 # LLM 모드 생성 모델 — 기본값은 코드가 아니라 project/config/models.json 의 answer 에서 온다
 # (선정 근거: project/eval/model_compare/REPORT.md). 바꾸려면 LLM_MODEL=... 로 재실행.
 LLM_MODEL="${LLM_MODEL:-$(current_env "$API_SERVICE" LLM_MODEL)}"

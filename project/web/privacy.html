@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>개인정보처리방침 · RAPV-Assistant</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cg transform='rotate(-45 16 16)'%3E%3Crect x='4' y='10' width='24' height='12' rx='6' fill='%23CBD5E1'/%3E%3Cpath d='M16 10h6a6 6 0 0 1 0 12h-6z' fill='%230F766E'/%3E%3C/g%3E%3C/svg%3E">
+<style>
+  :root {
+    --slate: #1E293B; --teal: #0F766E;
+    --bg: #f4f7f9; --panel: #ffffff; --line: #dde5ec; --text: #1b2a38; --muted: #5b7186;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; min-height: 100vh; display: flex; flex-direction: column;
+    font-family: -apple-system, "Segoe UI", "Noto Sans KR", sans-serif;
+    background: var(--bg); color: var(--text); }
+  header { padding: 18px 24px; background: var(--slate); color: #fff;
+    display: flex; align-items: center; gap: 12px; font-size: 20px; font-weight: 650; }
+  header a { color: inherit; text-decoration: none; display: flex; align-items: center; gap: 12px; }
+  main { flex: 1; display: flex; justify-content: center; padding: 32px 16px; }
+  .card { width: 100%; max-width: 720px; background: var(--panel); border: 1px solid var(--line);
+    border-radius: 16px; padding: 32px 28px; box-shadow: 0 6px 24px rgba(30,41,59,.06); }
+  h1 { margin: 0 0 6px; font-size: 24px; }
+  h2 { margin: 28px 0 10px; font-size: 17px; color: var(--teal); }
+  p, li { line-height: 1.7; font-size: 15px; }
+  p { margin: 0 0 12px; }
+  ul { margin: 0 0 12px; padding-left: 20px; }
+  .meta { color: var(--muted); font-size: 13px; margin-bottom: 20px; }
+  table { border-collapse: collapse; width: 100%; margin: 0 0 12px; font-size: 14px; }
+  th, td { border: 1px solid var(--line); padding: 8px 10px; text-align: left; vertical-align: top; }
+  th { background: #f8fafc; white-space: nowrap; }
+  code { background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  footer { padding: 16px 24px; text-align: center; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+  <header>
+    <a href="/">
+      <svg width="26" height="26" viewBox="0 0 32 32" aria-hidden="true">
+        <g transform="rotate(-45 16 16)">
+          <rect x="4" y="10" width="24" height="12" rx="6" fill="#E2E8F0"/>
+          <path d="M16 10h6a6 6 0 0 1 0 12h-6z" fill="#14B8A6"/>
+        </g>
+      </svg>
+      RAPV-Assistant
+    </a>
+  </header>
+  <main>
+    <div class="card">
+      <h1>개인정보처리방침</h1>
+      <div class="meta">시행일 2026-10-26 · RAPV-Assistant (제약 규제업무 RA·PV 용 AI 어시스턴트, 포트폴리오 데모)</div>
+
+      <p>RAPV-Assistant(이하 "서비스")는 Google 계정 로그인을 통해 이용자를 확인합니다.
+      이 문서는 서비스가 어떤 정보를 받고, 무엇에 쓰며, 얼마나 보관하는지 설명합니다.</p>
+
+      <h2>1. 수집하는 정보</h2>
+      <p>Google 로그인 시 Google 이 제공하는 기본 프로필 정보(OpenID Connect <code>openid</code> · <code>email</code> · <code>profile</code> 범위)만 받습니다.</p>
+      <table>
+        <tr><th>항목</th><th>용도</th></tr>
+        <tr><td>이메일 주소</td><td>이용 허용 여부 확인(허용 목록·허용 도메인 대조), 로그인 성공·거부 기록</td></tr>
+        <tr><td>이름</td><td>화면에 로그인한 사용자 표시</td></tr>
+        <tr><td>Google 계정 식별자</td><td>사용자별 하루 이용 횟수 계산</td></tr>
+      </table>
+      <p>Google 계정의 비밀번호, 연락처, 캘린더, 드라이브 등 다른 데이터에는 접근하지 않습니다.</p>
+
+      <h2>2. 이용 목적</h2>
+      <ul>
+        <li>로그인한 사용자인지, 이용이 허용된 계정인지 확인</li>
+        <li>사용자별 하루 질문 횟수 제한(API 비용 보호)</li>
+        <li>로그인 성공·거부 같은 보안 관련 운영 기록</li>
+      </ul>
+      <p>수집한 정보를 광고, 마케팅, 프로필 분석에 쓰지 않으며 제3자에게 판매하거나 제공하지 않습니다.</p>
+
+      <h2>3. 보관 기간과 방식</h2>
+      <ul>
+        <li><strong>세션</strong>: 로그인 상태는 서명된 쿠키(<code>pa_session</code>)에 담겨 이용자의 브라우저에만 보관되며 7일 후 만료됩니다. 로그아웃하면 즉시 삭제됩니다.</li>
+        <li><strong>이용 횟수</strong>: 서버 메모리에 당일(한국 시간 기준) 집계만 두며, 날짜가 바뀌거나 서버가 재시작되면 사라집니다.</li>
+        <li><strong>운영 로그</strong>: 로그인 성공·거부 시 이메일 주소가 서버 로그에 남습니다. 로그는 호스팅 플랫폼(Google Cloud Run)의 기본 보관 기간이 지나면 자동 삭제됩니다.</li>
+      </ul>
+      <p>서비스는 이용자 계정 정보를 별도 데이터베이스에 저장하지 않습니다.</p>
+
+      <h2>4. 대화 내용의 처리</h2>
+      <p>이용자가 입력한 질문은 답변 생성을 위해 처리됩니다. LLM 모드가 켜진 경우 질문과 이전 대화가
+      답변 생성을 위해 Anthropic 의 Claude API 로 전송됩니다. 서비스는 대화 내용을 저장하지 않으며,
+      운영 로그에는 처리 시간과 검증 결과 같은 지표만 남기고 질문 본문은 기록하지 않습니다.</p>
+      <p>질문에 환자 실명, 연락처, 주민등록번호 같은 개인정보나 회사 기밀을 입력하지 말아 주세요.</p>
+
+      <h2>5. 이용자의 권리</h2>
+      <p>로그아웃하면 세션이 삭제됩니다. 운영 로그에 남은 로그인 기록의 삭제나 그 밖의 문의는
+      아래 연락처로 요청하면 처리합니다. Google 계정 설정의
+      "서드파티 앱 및 서비스"에서 이 서비스의 접근 권한을 언제든 해제할 수 있습니다.</p>
+
+      <h2>6. 연락처</h2>
+      <p>개인정보 관련 문의: Google 로그인 동의 화면에 표시된 지원 이메일로 연락해 주세요.</p>
+
+      <h2>7. 변경</h2>
+      <p>이 방침이 바뀌면 이 페이지에 시행일을 갱신해 공지합니다.</p>
+    </div>
+  </main>
+  <footer>RAPV-Assistant · <a href="/privacy">개인정보처리방침</a></footer>
+</body>
+</html>
