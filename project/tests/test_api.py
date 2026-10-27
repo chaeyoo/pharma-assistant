@@ -10,6 +10,12 @@ pytest·preflight 는 main.py 를 import 하지 않아 못 잡았고, 서버를 
 """
 from __future__ import annotations
 
+import re
+import shutil
+import subprocess
+from pathlib import Path
+
+import pytest
 from fastapi.testclient import TestClient
 
 from src.api.main import app
@@ -111,3 +117,29 @@ def test_warmup_reports_mcp_ready():
         body = r.json()
         assert body["status"] == "ok" and isinstance(body["ms"], int)
         assert body["rag"]["chunks"] > 0
+
+
+_WEB_DIR = Path(__file__).resolve().parents[1] / "web"
+_HTML_WITH_SCRIPT = sorted(
+    p for p in _WEB_DIR.glob("*.html") if "<script" in p.read_text(encoding="utf-8")
+)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="node 미설치 — JS 문법 검사 생략")
+@pytest.mark.parametrize("html", _HTML_WITH_SCRIPT, ids=lambda p: p.name)
+def test_inline_scripts_parse(html: Path, tmp_path: Path):
+    """web/*.html 의 인라인 <script> 가 문법 오류 없이 파싱된다.
+
+    배경: dashboard.html 의 refresh() 안에 같은 이름의 const 가 두 번 선언돼
+    SyntaxError 로 스크립트 전체가 죽었고, 계기판은 초기값(`…`/`—`) 그대로 멈춘 채
+    "집계가 안 된다"고 보였다. catch 블록조차 실행되지 않는 **표현 계층의 무증상 고장**
+    이라 200 응답·문자열 포함 검사로는 잡히지 않는다 — node --check 로 계약을 고정한다.
+    """
+    text = html.read_text(encoding="utf-8")
+    blocks = re.findall(r"<script(?![^>]*\bsrc=)[^>]*>(.*?)</script>", text, re.S)
+    assert blocks, f"{html.name}: 인라인 <script> 블록을 찾지 못했다"
+    for i, js in enumerate(blocks):
+        f = tmp_path / f"{html.stem}_{i}.js"
+        f.write_text(js, encoding="utf-8")
+        r = subprocess.run(["node", "--check", str(f)], capture_output=True, text=True)
+        assert r.returncode == 0, f"{html.name} script#{i}: {r.stderr.strip()}"
