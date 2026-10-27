@@ -263,14 +263,16 @@
       $('pTop').textContent = `${p.retrieve_top_k ?? '—'} / ${p.rerank_top_n ?? '—'}`;
 
       // 모델 선택
-      const m = d.models || {};
-      $('mAnswer').innerHTML = `<code>${m.answer || '—'}</code>`;
-      $('mJudge').innerHTML = `<code>${m.judge || '—'}</code>`;
-      $('mSummary').innerHTML = `<code>${m.summary || '—'}</code>`;
-      const mc = d.model_compare || {};
-      $('mcWhen').textContent = mc.available ? (mc.generated_at || '—') : '없음';
-      $('mcJudge').innerHTML = mc.available ? `<code>${mc.judge_model || '—'}</code>` : '—';
-      renderCompare(mc);
+      // 주의: 위 헤더 배지 블록이 같은 스코프에서 m/mc 를 이미 선언했다 — 이름이 겹치면
+      // SyntaxError 로 스크립트 전체가 죽어 계기판이 초기값 그대로 멈춘다(무증상 고장).
+      const models = d.models || {};
+      $('mAnswer').innerHTML = `<code>${models.answer || '—'}</code>`;
+      $('mJudge').innerHTML = `<code>${models.judge || '—'}</code>`;
+      $('mSummary').innerHTML = `<code>${models.summary || '—'}</code>`;
+      const cmp = d.model_compare || {};
+      $('mcWhen').textContent = cmp.available ? (cmp.generated_at || '—') : '없음';
+      $('mcJudge').innerHTML = cmp.available ? `<code>${cmp.judge_model || '—'}</code>` : '—';
+      renderCompare(cmp);
 
       const t = new Date();
       $('tick').textContent = `갱신 ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}`;
